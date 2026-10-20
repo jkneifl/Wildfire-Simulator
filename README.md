@@ -21,12 +21,12 @@ uv run python -m wildfire.cli replay data/test/ep_0000
 from wildfire import Config, WildfireEnv, VecWildfire
 
 env = WildfireEnv(Config.from_yaml("configs/default.yaml"))
-obs, info = env.reset(seed=0)        # obs: grid (V, V, 6), rgb, light, agent{facing, tank}
+obs, info = env.reset(seed=0)  # obs: grid (V, V, 6), rgb, light, agent{facing, tank}
 obs, reward, terminated, truncated, info = env.step(action)
-state = env.get_state()              # privileged WorldState (copy)
+state = env.get_state()  # privileged WorldState (copy)
 env.set_state(state)
 futures = env.fork(n=16, steps=200)  # batched WorldState (16, H, W), one stream id per future
-vec = VecWildfire(cfg, n=8)          # steps 8 worlds with arrays (8, H, W)
+vec = VecWildfire(cfg, n=8)  # steps 8 worlds with arrays (8, H, W)
 ```
 
 `info` holds `step`, the agent's own position `pos`, the tiles intersecting the window and the
@@ -71,6 +71,7 @@ optional `obs_rgb.npy`, `tiles_seen.npy` with shape `(2, rows, cols)` = first/la
 | `env.py` | `WildfireEnv`, `VecWildfire`, `fork` |
 | `record.py` | `Recorder`, `replay`, `EpisodeDataset` |
 | `policies.py` | scripted policies |
+| `metrics.py` | global and patch statistics, `simulate_stats`, `regime_summary` |
 | `app/play.py` | pygame-ce frontend |
 | `cli.py` | `run` (headless statistics), `generate`, `replay` |
 
@@ -81,11 +82,68 @@ no-op actions, measured with `wildfire.cli run`:
 
 | world | steps/s |
 |---|---|
-| 256 × 256 (2000 steps, seed 0) | 696 |
-| 2048 × 2048 (200 steps, seed 0, 23k–49k burning cells) | 11.2 |
+| 256 × 256 (2000 steps, seed 0), start defaults | 696 |
+| 256 × 256 (2000 steps, seed 0), calibrated defaults | 621 |
+| 2048 × 2048 (200 steps, seed 0, 23k–49k burning cells), start defaults | 11.2 |
 
 Environment overhead on 256 × 256 (500 no-op steps, seed 0): `WildfireEnv` 637 steps/s without
 and 522 with `rgb`; `VecWildfire(n=16)` 702 world-steps/s; `fork(16, 100)` 2.2 s.
+
+## Scripted policies
+
+`random_walk`, `explore_return` (observe a tile for 40 steps, leave until it is out of view,
+stay away for a log-uniform `Δt` in 50–2000 steps without bringing it back into view, return;
+`policy_log` in `meta.json` lists `{tile, leave_step, return_step, dt}`), `firestarter`
+(random walk, ignites with probability 0.02 per step), `firefighter` (waters the nearest
+visible fire, refills at the nearest visible water). All randomness uses purpose `POLICY`
+with the policy's seed.
+
+## Calibration (M4)
+
+`scripts/calibrate.py` runs headless no-op simulations on 256 × 256, 30 days each (7200
+steps), excludes the first 5 days, and reports per seed: fraction of steps with at least one
+burning cell, longest fire-free stretch, vegetation density and ash fraction of ground cells.
+It plots the time series and the size distributions (CCDF) of 4-connected burned and vegetated
+components in daily snapshots.
+
+```bash
+uv run python scripts/calibrate.py --seeds 0 1 2 3 4 --days 30 --out docs/calibration/calibrated
+```
+
+Starting defaults miss the target regime: on seeds 0–2, fire is active in only 64 % of steps,
+with fire-free stretches up to 2.2 days, and vegetation swings between 11 % and 91 % in
+map-wide boom-bust cycles. 15 `(beta, p_lightning)` combinations were tried (beta ∈ {0.05,
+0.1, 0.2, 0.35}, p_lightning ∈ {2e-7, 5e-7, 1e-6, 2e-6, 5e-6, 1e-5}, 2 seeds, 30 days); all
+other parameters are unchanged. More lightning removes the fire-free gaps; a lower `beta`
+keeps fires from sweeping the connected forest. `beta = 0.2, p_lightning = 2e-6` also met the
+numbers but showed a ~2-day oscillation that is nearly in phase across seeds; `beta = 0.1`
+gives less synchronised, more local fires.
+
+| parameter | start | calibrated |
+|---|---|---|
+| `beta` | 0.35 | **0.1** |
+| `p_lightning` | 2e-7 | **1e-6** |
+
+Means over seeds after the 5-day burn-in (256 × 256, 30 days; per-seed values in
+`docs/calibration/*/summary.json`):
+
+| config | seeds | steps with fire | longest fire-free | veg density min–mean–max | ash fraction mean / max | active fires (mean cells) |
+|---|---|---|---|---|---|---|
+| start defaults | 0–2 | 63.9 % | 2.17 days | 0.11 – 0.51 – 0.91 | 0.49 / 0.89 | 462 |
+| calibrated | 0–4 | 97.5 % | 0.15 days (max 0.5, seed 3) | 0.36 – 0.60 – 0.81 | 0.40 / 0.64 | 438 |
+
+Seeds 3 and 4 were not used for the choice; they agree with seeds 0–2. Ash persists for
+roughly 2–3 days on average before a cell is reseeded (40 % ash cover at about 50 cells
+burning out per step), which matches "burned areas regrow over a few days". Patch sizes are
+broad and heavy-tailed (1 to ~3·10⁴ cells), without a clean power law; this is a
+Drossel–Schwabl-like regime, not a verified critical state.
+
+Plots: [time series](docs/calibration/calibrated/timeseries.png),
+[patch sizes](docs/calibration/calibrated/patches.png); start defaults:
+[time series](docs/calibration/initial_defaults/timeseries.png),
+[patch sizes](docs/calibration/initial_defaults/patches.png).
+
+![calibrated time series](docs/calibration/calibrated/timeseries.png)
 
 ## Decisions
 
@@ -132,5 +190,7 @@ Choices where the spec is ambiguous. Each keeps determinism and the observable/p
   the step-0 snapshot, otherwise it starts from the step-0 snapshot. Replay checks every
   snapshot, every observation grid and the agent trajectory. Game recordings go to
   `recordings/ep_<date>_<time>`. `preview.mp4` is not written (no video dependency).
+- **Policy randomness** goes through `rng.py` with purpose `POLICY` (not part of the
+  simulation's purpose list), keyed by the policy seed and a per-call counter.
 - **Episode seeds.** `generate` uses seed `--seed + i` for episode `i`, for both the world
   and the policy.

@@ -20,12 +20,12 @@ class Config:
     rock_frac: float = 0.04
     # dynamics (SPEC 3.3)
     v_max: int = 4
-    beta: float = 0.35
+    beta: float = 0.1  # calibrated (M4); spec start value 0.35
     m_night: float = 0.5
     wet_block: int = 128
     burn_base: int = 3
     burn_per_veg: int = 2
-    p_lightning: float = 2e-7
+    p_lightning: float = 1e-6  # calibrated (M4); spec start value 2e-7
     p_grow: float = 0.01
     p_seed: float = 0.002
     regrow_delay: int = 120
