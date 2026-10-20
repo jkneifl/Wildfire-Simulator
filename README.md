@@ -55,6 +55,10 @@ test is skipped if `node` is not installed. Any change to the Python rules must 
 python3 -m http.server 8765 --directory web    # then open http://localhost:8765
 ```
 
+Every push to `main` deploys it to GitHub Pages: https://jkneifl.github.io/Wildfire-Simulator/
+(`.github/workflows/pages.yml` wraps `web/index.html` in a full HTML document and copies
+`wildfire.js`).
+
 ## Game controls
 
 | key | action |
