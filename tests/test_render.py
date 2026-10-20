@@ -26,7 +26,7 @@ def test_night_dims_but_fire_stays_bright(small):
         s.fire[10, 10] = 9
     d = render(day, (0, 0, 20, 20), cfg, ppc=1).astype(int)
     n = render(night, (0, 0, 20, 20), cfg, ppc=1).astype(int)
-    assert n[0, 0].sum() < 0.5 * d[0, 0].sum()
+    assert n[0, 0].sum() < 0.55 * d[0, 0].sum()
     assert n[10, 10].sum() > 0.6 * d[10, 10].sum()  # flicker is within 0.8..1.2
     assert n[10, 10, 0] > 150
 

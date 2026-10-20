@@ -384,8 +384,8 @@ const WF = (() => {
     rock: mix(GROUND_C, INK_C, 0.42), water: hex("#2A6688"), waterVariant: hex("#307596"),
     ember: mix(GROUND_C, FIRE_C, 0.62), ash: [BARE_C, ASH_FRESH, mix(ASH_FRESH, BARE_C, 0.5), BARE_C],
     veg: VEG_C, vegVariant: [BARE_C, ...VEG_C.slice(1).map((c) => mix(GROUND_C, c, 0.72))],
-    wet: hex("#5FA8D3"), wetMix: 0.3, flameBase: 0.1, flameAmp: 0.1, flamePeriod: 12,
-    nightMin: 0.35, gapFrac: 0.09, gapMinPx: 6, fog: GROUND_C, mix,
+    wet: hex("#5FA8D3"), wetMix: 0.65, flameBase: 0.1, flameAmp: 0.1, flamePeriod: 12,
+    nightMin: 0.5, gapFrac: 0.09, gapMinPx: 6, fog: GROUND_C, mix,
   };
   const VARIANT_COUNTER = 64; // TERRAIN sub-counter (render/topdown.py)
 

@@ -43,11 +43,13 @@ VEG_VARIANT = (BARE, *(mix(GROUND, c, VEG_DARK) for c in VEG[1:]))
 FLAME_BASE, FLAME_AMP, FLAME_PERIOD = 0.10, 0.10, 12
 
 WET_TINT = hex_rgb("#5FA8D3")  # proposed
-WET_MIX = 0.30  # mix(c, WET_TINT, WET_MIX * wet / 255)
+WET_MIX = 0.65  # mix(c, WET_TINT, WET_MIX * wet / 255); style sheet 0.30, raised for visibility
 
 # grid: gap = max(1, round(GAP_FRAC * cell_px)), none below GAP_MIN_PX unless forced
 GAP_FRAC, GAP_MIN_PX = 0.09, 6
 
 FOG = GROUND
-NIGHT_MIN = 0.35  # SPEC 5: brightness NIGHT_MIN + (1 - NIGHT_MIN) * L, burning cells excluded
+# brightness NIGHT_MIN + (1 - NIGHT_MIN) * L, burning cells excluded
+# (SPEC 5 says 0.35; raised to 0.50 on request)
+NIGHT_MIN = 0.50
 MUTED = mix(GROUND, INK, 0.60)  # secondary HUD text

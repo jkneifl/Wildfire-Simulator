@@ -255,8 +255,12 @@ Choices where the spec is ambiguous. Each keeps determinism and the observable/p
     | vegetation, stages 1–4 | 0.20 / 0.28 / 0.37 / 0.46 | 0.34 / 0.48 / 0.63 / 0.78 |
     | water / variant | `#1D4A63` / `#22556F` | `#2A6688` / `#307596` |
 
-    The base colours, GROUND gaps and fog, the darker variant (0.72), the flame and the wet
-    tint are unchanged.
+    The base colours, GROUND gaps and fog, the darker variant (0.72) and the flame are
+    unchanged.
+  - **Wet tint stronger:** `WET_MIX` 0.30 → 0.65 (bucket 3 mixes 65 % towards `#5FA8D3`),
+    so sprayed cells are clearly visible.
+  - **Night floor raised (deviates from SPEC 5, on request):** brightness is
+    `0.50 + 0.50 L` instead of `0.35 + 0.65 L`. Burning cells are still not dimmed.
 - **Buckets.** fire: `ceil(3 * fire / FIRE_MAX)` with `FIRE_MAX = BURN_BASE + BURN_PER_VEG *
   V_MAX`; wet: 1–85, 86–170, 171–255; ash: thirds of `REGROW_DELAY`, bucket 3 from
   `2/3 REGROW_DELAY` on.
