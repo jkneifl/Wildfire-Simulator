@@ -36,6 +36,7 @@ class Config:
     # observation and rendering
     window: int = 33
     pixels_per_cell: int = 4
+    render_grid: bool = False  # force a 1 px grid gap below 6 px per cell
     tile: int = 16
     # recording
     snapshot_every: int = 50

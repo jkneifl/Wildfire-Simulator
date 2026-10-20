@@ -373,36 +373,64 @@ const WF = (() => {
     return out;
   }
 
+  // palette (render/palette.py): four base colours, everything else a rounded linear mix
+  const hex = (h) => [1, 3, 5].map((k) => parseInt(h.slice(k, k + 2), 16));
+  const mix = (a, b, f) => a.map((x, k) => Math.floor(x + f * (b[k] - x) + 0.5));
+  const GROUND_C = hex("#0F1A17"), FIRE_C = hex("#E8833A"), INK_C = hex("#E9EFE9"), ACCENT_C = hex("#4FB3A3");
+  const BARE_C = mix(GROUND_C, INK_C, 0.07), ASH_FRESH = mix(GROUND_C, INK_C, 0.15);
+  const VEG_C = [BARE_C, ...[0.2, 0.28, 0.37, 0.46].map((f) => mix(GROUND_C, ACCENT_C, f))];
   const PAL = {
-    terrain: [[150, 126, 86], [40, 92, 170], [112, 112, 118]],
-    veg: [[150, 126, 86], [156, 176, 84], [98, 152, 62], [52, 122, 46], [26, 86, 36]],
-    fire: [[0, 0, 0], [196, 48, 20], [246, 122, 26], [255, 214, 80]],
-    ash: [[150, 126, 86], [52, 48, 46], [88, 80, 70], [124, 108, 80]],
-    wet: [60, 120, 225], wetStrength: 0.15, fog: [18, 18, 24], nightMin: 0.35,
+    ground: GROUND_C, fire: FIRE_C, ink: INK_C, accent: ACCENT_C, bare: BARE_C,
+    rock: mix(GROUND_C, INK_C, 0.3), water: hex("#1D4A63"), waterVariant: hex("#22556F"),
+    ember: mix(GROUND_C, FIRE_C, 0.5), ash: [BARE_C, ASH_FRESH, mix(ASH_FRESH, BARE_C, 0.5), BARE_C],
+    veg: VEG_C, vegVariant: [BARE_C, ...VEG_C.slice(1).map((c) => mix(GROUND_C, c, 0.72))],
+    wet: hex("#5FA8D3"), wetMix: 0.3, flameBase: 0.1, flameAmp: 0.1, flamePeriod: 12,
+    nightMin: 0.35, gapFrac: 0.09, gapMinPx: 6, fog: GROUND_C, mix,
   };
+  const VARIANT_COUNTER = 64; // TERRAIN sub-counter (render/topdown.py)
+
+  // per-cell textures for a whole world: variant bit and flame phase (render/topdown.py)
+  function textures(seed, H, W) {
+    const kv = key(seed, 0, VARIANT_COUNTER, P.TERRAIN), kf = key(seed, 0, 0, P.FLICKER);
+    const variant = new Uint8Array(H * W), phase = new Float64Array(H * W);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      cellBits(kv, y, x); variant[y * W + x] = unit() < 0.5 ? 1 : 0;
+      cellBits(kf, y, x); phase[y * W + x] = unit();
+    }
+    return { variant, phase };
+  }
 
   // colour of an observable cell -> out[0..2] (render/topdown.py colors)
-  function color(o, L, flick, out) {
+  function color(o, L, t, variant, phase, out) {
     const [tr, v, b, fb, wb, ab] = o;
     if (b) {
-      const f = PAL.fire[fb], m = flick === null ? 1 : 0.8 + 0.4 * flick;
-      out[0] = f[0] * m; out[1] = f[1] * m; out[2] = f[2] * m;
+      if (fb >= 2) {
+        const f = PAL.flameBase + PAL.flameAmp * Math.sin(2 * Math.PI * (t / PAL.flamePeriod + phase));
+        for (let j = 0; j < 3; j++) out[j] = Math.floor(FIRE_C[j] + f * (INK_C[j] - FIRE_C[j]) + 0.5);
+      } else for (let j = 0; j < 3; j++) out[j] = PAL.ember[j];
       return out;
     }
-    let c = PAL.terrain[tr];
-    if (v > 0) c = PAL.veg[v];
-    else if (ab > 0 && tr === GROUND) c = PAL.ash[ab];
-    const tint = tr === WATER ? 0 : PAL.wetStrength * wb;
+    let c;
+    if (tr === WATER) c = variant ? PAL.waterVariant : PAL.water;
+    else if (tr === ROCK) c = PAL.rock;
+    else if (v > 0) c = variant ? PAL.vegVariant[v] : PAL.veg[v];
+    else c = PAL.ash[ab];
+    const f = tr === GROUND ? PAL.wetMix * 85 * wb / 255 : 0;
     const k = PAL.nightMin + (1 - PAL.nightMin) * L;
-    for (let j = 0; j < 3; j++) out[j] = (c[j] * (1 - tint) + PAL.wet[j] * tint) * k;
+    for (let j = 0; j < 3; j++) {
+      const w = Math.floor(c[j] + f * (PAL.wet[j] - c[j]) + 0.5);
+      out[j] = Math.floor(w * k + 0.5);
+    }
     return out;
   }
 
-  const flickerKey = (s) => key(s.seed, s.stream, s.t, P.FLICKER);
-  function flickerAt(k, y, x) { cellBits(k, y, x); return unit(); }
+  function gapPx(ppc, force = false) {
+    if (ppc < PAL.gapMinPx) return force && ppc > 1 ? 1 : 0;
+    return Math.max(1, Math.floor(PAL.gapFrac * ppc + 0.5));
+  }
 
   return {
-    P, key, uniform, flickerKey, flickerAt, threshold, DEFAULTS, startStep, fireMax, GROUND, WATER, ROCK,
+    P, key, uniform, textures, gapPx, threshold, DEFAULTS, startStep, fireMax, GROUND, WATER, ROCK,
     generateTerrain, initialState, copyState, applyAction, step, light, forkStreams,
     A, DY, DX, cellObs, color, PAL,
   };

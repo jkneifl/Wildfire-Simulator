@@ -16,7 +16,7 @@ from ..dynamics import light, step
 from ..metrics import global_stats
 from ..observe import agent_window, crop, grid
 from ..render import palette as P
-from ..render.topdown import colors, flicker
+from ..render.topdown import colors, flame_phase, upscale, variant
 from ..state import WorldState
 from ..terrain import initial_state
 
@@ -25,6 +25,8 @@ AGENT_ZOOM = 12  # px per cell in agent view
 SPEEDS = (2, 5, 10, 20, 40)
 MINIMAP = 180
 SAVE_PATH = Path("saves/quicksave.npz")
+MEMORY_DIM = 0.55  # last-seen overlay: mix towards GROUND
+HEAT_MIX = 0.75  # fork preview: mix towards INK by HEAT_MIX * burn probability
 MOVE_KEYS = {
     pygame.K_UP: A.MOVE_N, pygame.K_w: A.MOVE_N,
     pygame.K_RIGHT: A.MOVE_E, pygame.K_d: A.MOVE_E,
@@ -209,6 +211,11 @@ class Game:
         self.zoom = new
 
     # --- drawing ----------------------------------------------------------------------
+    def smooth_t(self) -> float:
+        """Step interpolated between simulation steps, for the flame shimmer."""
+        frac = 0.0 if self.paused else min(self.acc * SPEEDS[self.speed], 1.0)
+        return float(self.state.t) + frac
+
     def view_zoom(self) -> float:
         return self.zoom if self.god else AGENT_ZOOM
 
@@ -233,56 +240,60 @@ class Game:
         x0, y0 = math.floor(ox), math.floor(oy)
         w, h = math.ceil(MAP_W / z) + 2, math.ceil(MAP_H / z) + 2
         L = float(light(s.t, cfg.day_length))
-        c = colors(grid(s, y0, x0, h, w, cfg), L, flicker(s, y0, x0, h, w))
+        var = variant(int(s.seed), y0, x0, h, w)
+        phase = flame_phase(int(s.seed), y0, x0, h, w)
+        c = colors(grid(s, y0, x0, h, w, cfg), L, self.smooth_t(), var, phase).astype(np.float64)
         if not self.god:
             wy, wx, wh, ww = agent_window(s, cfg)
             yy, xx = np.indices((h, w))
             inside = (yy + y0 >= wy) & (yy + y0 < wy + wh) & (xx + x0 >= wx) & (xx + x0 < wx + ww)
-            outside = np.broadcast_to(np.array(P.FOG, np.float32), c.shape)
+            outside = np.broadcast_to(np.array(P.FOG, np.float64), c.shape)
             if self.overlay:
                 mem = np.stack([crop(self.memory[..., i], y0, x0, h, w) for i in range(6)], -1)
-                m = colors(mem, 1.0)
-                gray = m.mean(-1, keepdims=True)
-                m = 0.55 * (0.35 * m + 0.65 * gray)  # desaturated and dimmed
+                m = colors(mem, 1.0, self.smooth_t(), var, phase).astype(np.float64)
+                m = m + MEMORY_DIM * (np.array(P.GROUND) - m)  # dimmed towards the background
                 seen = crop(self.seen, y0, x0, h, w)[..., None]
                 outside = np.where(seen, m, outside)
             c = np.where(inside[..., None], c, outside)
         if self.god and self.heat is not None:
-            heat = crop(self.heat, y0, x0, h, w)[..., None]
-            c = c * (1 - 0.8 * heat) + np.array((255, 0, 255), np.float32) * 0.8 * heat
-        surf = to_surface(np.clip(c, 0, 255).astype(np.uint8))
-        surf = pygame.transform.scale(surf, (round(w * z), round(h * z)))
+            heat = HEAT_MIX * crop(self.heat, y0, x0, h, w)[..., None]
+            c = c + heat * (np.array(P.INK) - c)
+        ppc = max(1, round(z))
+        img = upscale(np.floor(c + 0.5).astype(np.uint8), ppc)
+        surf = to_surface(img)
+        if ppc != z:
+            surf = pygame.transform.scale(surf, (round(w * z), round(h * z)))
         self.screen.blit(surf, ((x0 - ox) * z, (y0 - oy) * z))
 
         # agent window outline (god view) and agent marker
         wy, wx, wh, ww = agent_window(s, cfg)
         if self.god:
             px, py = self.to_screen(wx, wy)
-            pygame.draw.rect(self.screen, (255, 255, 255), (px, py, ww * z, wh * z), 1)
+            pygame.draw.rect(self.screen, P.INK, (px, py, ww * z, wh * z), 1)
         ax, ay = self.to_screen(int(s.ax) + 0.5, int(s.ay) + 0.5)
         r = max(z * 0.45, 3)
         dy, dx = A.DY[int(s.facing)], A.DX[int(s.facing)]
         tip = (ax + dx * r * 1.6, ay + dy * r * 1.6)
-        pygame.draw.circle(self.screen, (255, 255, 255), (ax, ay), r)
-        pygame.draw.circle(self.screen, (20, 20, 20), (ax, ay), r, 1)
-        pygame.draw.line(self.screen, (255, 255, 255), (ax, ay), tip, 2)
+        pygame.draw.circle(self.screen, P.INK, (ax, ay), r)
+        pygame.draw.circle(self.screen, P.GROUND, (ax, ay), r, 1)
+        pygame.draw.line(self.screen, P.INK, (ax, ay), tip, 2)
 
     def draw_minimap(self) -> None:
         s, cfg = self.state, self.cfg
         H, W = s.shape
         g = grid(s, 0, 0, H, W, cfg)
-        c = colors(g, float(light(s.t, cfg.day_length)))
+        seed = int(s.seed)
+        L = float(light(s.t, cfg.day_length))
+        c = colors(g, L, self.smooth_t(), variant(seed, 0, 0, H, W), flame_phase(seed, 0, 0, H, W))
         scale = MINIMAP / max(H, W)
-        surf = pygame.transform.scale(
-            to_surface(c.astype(np.uint8)), (round(W * scale), round(H * scale))
-        )
+        surf = pygame.transform.scale(to_surface(c), (round(W * scale), round(H * scale)))
         x, y = MAP_W - surf.get_width() - 8, MAP_H - surf.get_height() - 8
         self.screen.blit(surf, (x, y))
-        pygame.draw.rect(self.screen, (230, 230, 230), (x - 1, y - 1, *surf.get_size()), 1)
+        pygame.draw.rect(self.screen, P.MUTED, (x - 1, y - 1, *surf.get_size()), 1)
         wy, wx, wh, ww = agent_window(s, cfg)
         pygame.draw.rect(
             self.screen,
-            (255, 255, 255),
+            P.INK,
             (x + wx * scale, y + wy * scale, max(ww * scale, 2), max(wh * scale, 2)),
             1,
         )
@@ -353,19 +364,31 @@ class Game:
         ]
 
     def draw_panel(self) -> None:
-        pygame.draw.rect(self.screen, (28, 28, 34), (MAP_W, 0, PANEL_W, MAP_H))
+        pygame.draw.rect(self.screen, P.BARE, (MAP_W, 0, PANEL_W, MAP_H))
         y = 10
         L = float(light(self.state.t, self.cfg.day_length))
         for i, line in enumerate(self.hud_lines()):
             if i == 1:  # light bar after the clock
-                pygame.draw.rect(self.screen, (70, 70, 80), (MAP_W + 10, y + 2, 200, 10))
-                pygame.draw.rect(self.screen, (250, 220, 90), (MAP_W + 10, y + 2, 200 * L, 10))
+                pygame.draw.rect(self.screen, P.GROUND, (MAP_W + 10, y + 2, 200, 10))
+                pygame.draw.rect(self.screen, P.ACCENT, (MAP_W + 10, y + 2, 200 * L, 10))
                 self.screen.blit(
-                    self.font.render(f"light {L:.2f}", True, (220, 220, 220)), (MAP_W + 218, y)
+                    self.font.render(f"light {L:.2f}", True, P.MUTED), (MAP_W + 218, y)
                 )
             else:
-                self.screen.blit(self.font.render(line, True, (220, 220, 220)), (MAP_W + 10, y))
+                color = self.line_color(i, line)
+                self.screen.blit(self.font.render(line, True, color), (MAP_W + 10, y))
             y += 20
+
+    def line_color(self, i: int, line: str) -> tuple[int, int, int]:
+        """HUD colours: accent for the clock and headings, fire for warnings, muted for help."""
+        if i == 0 or line.startswith("--"):
+            return P.ACCENT
+        warn = line.startswith(("PAUSED", "REC")) or line == f"tank 0/{self.cfg.tank}"
+        if warn or (line.startswith("active fires") and not line.endswith(" 0")):
+            return P.FIRE
+        if i >= len(self.hud_lines()) - 5:
+            return P.MUTED
+        return P.INK
 
     def draw(self) -> None:
         self.screen.fill(P.FOG)

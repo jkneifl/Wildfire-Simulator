@@ -223,8 +223,27 @@ Choices where the spec is ambiguous. Each keeps determinism and the observable/p
 - **Batches.** The same `step` handles `(H, W)` and `(n, H, W)`; scalars are int64 arrays with
   the batch shape. Terrain is replicated per world.
 - **Renderer uses only observable channels.** Colours come from `observe.grid` (terrain, veg,
-  burning, fire/wet/ash buckets), so `obs["rgb"]` carries no more state than `obs["grid"]`
-  (apart from the `FLICKER` noise). Ash shades and the wetness tint are therefore per bucket.
+  burning, fire/wet/ash buckets), so `obs["rgb"]` carries no more state than `obs["grid"]`.
+  The two per-cell textures depend only on the seed and the cell: the variant bit (purpose
+  `TERRAIN`, sub-counter 64) and the flame phase `u_xy` (purpose `FLICKER`, stream 0, step 0).
+  The flame changes over time only through `t`, so the image no longer depends on the stream.
+- **Visual style** (`render/palette.py`). There are four base
+  colours, and every other colour is a linear sRGB mix of them, rounded half up. Choices
+  where the style sheet is open:
+  - Wetness uses the observable bucket: the tint is `0.30 * 85 * bucket / 255`, standing for
+    wet = 85 × bucket.
+  - The darker vegetation variant is `mix(GROUND, VEG[stage], 0.72)` of the rounded colour.
+    This reproduces all four table values; `mix(GROUND, ACCENT, 0.72 f)` gives green 77
+    instead of 76 (`#244C45`) at stage 4.
+  - Water uses the same per-cell variant bit as vegetation.
+  - Flames and embers are not wet-tinted and not dimmed at night. The SPEC 5 night factor
+    `0.35 + 0.65 L` is still applied to all other cells.
+  - The grid gap is inset `g // 2` on the left and top and the rest on the right and bottom,
+    and it is drawn in `GROUND` at all times of day.
+  - Overlays in the game use mixes of the base colours: last seen is `mix(c, GROUND, 0.55)`,
+    the fork preview is `mix(c, INK, 0.75 p)`, and the HUD uses `INK`, `ACCENT` for
+    highlights, `FIRE` for warnings and `mix(GROUND, INK, 0.6)` for secondary text.
+  - Water and wetness colours are implemented as proposed and still need confirmation.
 - **Buckets.** fire: `ceil(3 * fire / FIRE_MAX)` with `FIRE_MAX = BURN_BASE + BURN_PER_VEG *
   V_MAX`; wet: 1–85, 86–170, 171–255; ash: thirds of `REGROW_DELAY`, bucket 3 from
   `2/3 REGROW_DELAY` on.

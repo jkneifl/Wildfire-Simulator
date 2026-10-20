@@ -18,5 +18,6 @@ tank: 20
 infinite_water: false
 window: 33
 pixels_per_cell: 4
+render_grid: false
 tile: 16
 snapshot_every: 50

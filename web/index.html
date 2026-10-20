@@ -6,14 +6,18 @@
   /* Layout: map stage left (square, fluid), lookout-tower instrument panel right; stacks on phones.
      Single dark world on purpose: the map is a night-capable sim view. */
   :root {
-    --bg: #11161d;
-    --panel: #19212b;
-    --line: #2a3542;
-    --ink: #e8e2d4;
-    --muted: #8e9aa7;
-    --ember: #f08a32;
-    --water: #5b8fd6;
-    --leaf: #6fa24a;
+    /* Visual style: four base colours, everything else a linear sRGB mix of them */
+    --ground: #0F1A17;   /* background, grid gaps, fog */
+    --fire: #E8833A;     /* burning cells, warnings */
+    --ink: #E9EFE9;      /* agent, text, outlines */
+    --accent: #4FB3A3;   /* HUD highlights */
+    --bg: var(--ground);
+    --panel: #1E2926;    /* mix(ground, ink, 0.07), bare ground */
+    --line: #303A37;     /* mix(ground, ink, 0.15), fresh ash */
+    --raised: #27322F;   /* between bare ground and fresh ash, older ash */
+    --muted: #929A95;    /* mix(ground, ink, 0.60) */
+    --accent-dim: #21453E; /* mix(ground, accent, 0.28) */
+    --water: #22556F;
     --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
     --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
     --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -24,38 +28,39 @@
   .app { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 14px 24px; display: grid; gap: 14px; }
   header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
   h1 { font-family: var(--display); font-weight: 700; font-size: 1.9rem; letter-spacing: 0.02em; margin: 0; text-wrap: balance; }
-  h1 span { color: var(--ember); }
+  h1 span { color: var(--fire); }
   .sub { color: var(--muted); font-size: 0.92rem; }
   .layout { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 14px; align-items: start; }
   .stage { position: relative; min-width: 0; display: grid; gap: 10px; justify-items: center; }
   canvas#map { display: block; width: min(100%, calc(100vh - 120px)); min-width: 280px; max-width: 100%; aspect-ratio: 1 / 1; height: auto;
-    background: #12121a; border: 1px solid var(--line); border-radius: 4px; touch-action: none; image-rendering: pixelated; }
-  canvas#map:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
-  .toast { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); background: rgba(17, 22, 29, 0.88); border: 1px solid var(--line);
+    background: var(--ground); border: 1px solid var(--line); border-radius: 4px; touch-action: none; image-rendering: pixelated; }
+  canvas#map:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .toast { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); background: var(--ground); border: 1px solid var(--line);
     padding: 6px 12px; border-radius: 4px; font-family: var(--mono); font-size: 0.8rem; color: var(--ink); max-width: 90%; text-align: center; }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 14px; display: grid; gap: 14px; min-width: 0; }
   .label { font-family: var(--display); font-weight: 600; font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
   .clock { display: grid; gap: 6px; }
-  .clock .time { font-family: var(--mono); font-size: 2rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
+  .clock .time { color: var(--accent); font-family: var(--mono); font-size: 2rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
   .clock .day { font-family: var(--display); font-size: 1.1rem; color: var(--muted); }
-  .bar { height: 8px; background: #0d1117; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
-  .bar > i { display: block; height: 100%; background: linear-gradient(90deg, #6b5a2a, #f3d36b); width: 0; }
+  .bar { height: 8px; background: var(--ground); border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+  .bar > i { display: block; height: 100%; background: var(--accent); width: 0; }
   .bar.tank > i { background: var(--water); }
   .readouts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; margin: 0; }
   .readouts div { display: grid; gap: 2px; min-width: 0; }
   .readouts dt { font-family: var(--display); font-size: 0.74rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
   .readouts dd { margin: 0; font-family: var(--mono); font-size: 1rem; font-variant-numeric: tabular-nums; }
-  .readouts dd.fire { color: var(--ember); }
+  .readouts dd.fire { color: var(--fire); }
+  .warn { color: var(--fire); }
   .controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-  button { font: 600 0.82rem/1.1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); background: #222c38;
+  button { font: 600 0.82rem/1.1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); background: var(--raised);
     border: 1px solid var(--line); border-radius: 3px; padding: 8px 6px; cursor: pointer; display: grid; gap: 2px; justify-items: center; }
   button kbd { font: 400 0.7rem var(--mono); color: var(--muted); text-transform: none; letter-spacing: 0; }
-  button:hover { border-color: #3c4a5a; }
-  button:focus-visible { outline: 2px solid var(--ember); outline-offset: 1px; }
-  button[aria-pressed="true"] { background: #33261a; border-color: var(--ember); color: #ffd9b0; }
+  button:hover { border-color: var(--muted); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button[aria-pressed="true"] { background: var(--accent-dim); border-color: var(--accent); color: var(--ink); }
   .seedrow { display: flex; gap: 6px; align-items: center; }
-  .seedrow input { width: 100%; min-width: 0; font: 1rem var(--mono); background: #0d1117; color: var(--ink); border: 1px solid var(--line); border-radius: 3px; padding: 6px 8px; }
-  .inspector { font-family: var(--mono); font-size: 0.8rem; line-height: 1.5; white-space: pre-wrap; color: var(--ink); background: #0d1117;
+  .seedrow input { width: 100%; min-width: 0; font: 1rem var(--mono); background: var(--ground); color: var(--ink); border: 1px solid var(--line); border-radius: 3px; padding: 6px 8px; }
+  .inspector { font-family: var(--mono); font-size: 0.8rem; line-height: 1.5; white-space: pre-wrap; color: var(--ink); background: var(--ground);
     border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; min-height: 7.5em; }
   .legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; font-size: 0.82rem; color: var(--muted); }
   .legend span { display: flex; align-items: center; gap: 6px; }
@@ -67,7 +72,7 @@
   .pad .acts button { width: 96px; padding: 10px 6px; }
   @media (pointer: coarse) { .pad { display: flex; } }
   .keys { font-size: 0.82rem; color: var(--muted); line-height: 1.6; }
-  .keys kbd { font-family: var(--mono); font-size: 0.75rem; color: var(--ink); background: #0d1117; border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; }
+  .keys kbd { font-family: var(--mono); font-size: 0.75rem; color: var(--ink); background: var(--ground); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; }
   footer { color: var(--muted); font-size: 0.85rem; max-width: 75ch; line-height: 1.5; }
   footer code { font-family: var(--mono); font-size: 0.8rem; color: var(--ink); }
   @media (max-width: 900px) {
@@ -139,14 +144,14 @@
       </div>
       <div id="inspector" class="inspector" hidden></div>
       <div class="legend" aria-label="Map legend">
-        <span><i style="background:rgb(156,176,84)"></i>Young growth</span>
-        <span><i style="background:rgb(26,86,36)"></i>Mature forest</span>
-        <span><i style="background:rgb(255,214,80)"></i>Fire (hot)</span>
-        <span><i style="background:rgb(196,48,20)"></i>Fire (dying)</span>
-        <span><i style="background:rgb(52,48,46)"></i>Fresh ash</span>
-        <span><i style="background:rgb(150,126,86)"></i>Bare ground</span>
-        <span><i style="background:rgb(40,92,170)"></i>Water</span>
-        <span><i style="background:rgb(112,112,118)"></i>Rock</span>
+        <span><i style="background:#1C3933"></i>Young growth</span>
+        <span><i style="background:#2C6057"></i>Mature forest</span>
+        <span><i style="background:#E8833A"></i>Flames</span>
+        <span><i style="background:#7C4F29"></i>Embers</span>
+        <span><i style="background:#303A37"></i>Fresh ash</span>
+        <span><i style="background:#1E2926;outline:1px solid #303A37"></i>Bare ground</span>
+        <span><i style="background:#1D4A63"></i>Water</span>
+        <span><i style="background:#505A56"></i>Rock</span>
       </div>
       <p class="keys"><kbd>WASD</kbd>/<kbd>↑↓←→</kbd> move · <kbd>F</kbd> ignite · <kbd>Space</kbd> water the 3 × 3 cells in front.
         Standing next to water refills the tank. In god view, scroll to zoom and drag to pan.</p>
@@ -197,6 +202,7 @@
       }
   }
   function setState(s) {
+    if (!g.tex || g.texSeed !== s.seed) { g.tex = WF.textures(s.seed, H, W); g.texSeed = s.seed; }
     g.state = s; g.memory.fill(0); g.seen.fill(0); g.heat = null; g.pending = null; g.held = [];
     remember();
   }
@@ -385,46 +391,59 @@ self.onmessage = (e) => {
 
   // ---- drawing ---------------------------------------------------------------------------
   const col = [0, 0, 0];
-  const FOG = WF.PAL.fog;
+  const PAL = WF.PAL, FOG = PAL.fog, css = (c) => `rgb(${c[0]},${c[1]},${c[2]})`;
+  const MEMORY_DIM = 0.55, HEAT_MIX = 0.75; // as in app/play.py
+  const smoothT = () => g.state.t + (g.paused || g.forking ? 0 : Math.min(g.acc * SPEEDS[g.speed], 1));
   function draw() {
     const s = g.state, z = zoomVal(), [ox, oy] = origin();
     const x0 = Math.floor(ox), y0 = Math.floor(oy);
     const w = Math.ceil(CANVAS / z) + 2, h = Math.ceil(CANVAS / z) + 2;
     if (off.width !== w || off.height !== h) { off.width = w; off.height = h; }
     const img = octx.createImageData(w, h), d = img.data;
-    const L = WF.light(s.t, cfg.day_length), fk = WF.flickerKey(s);
+    const L = WF.light(s.t, cfg.day_length), t = smoothT(), tex = g.tex;
     const mem = new Uint8Array(6);
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
       const y = y0 + j, x = x0 + i, p = (j * w + i) * 4;
+      const inWorld = y >= 0 && y < H && x >= 0 && x < W, k = inWorld ? y * W + x : 0;
+      const va = inWorld ? tex.variant[k] : 0, ph = inWorld ? tex.phase[k] : 0;
       const inWin = Math.abs(y - s.ay) <= R && Math.abs(x - s.ax) <= R;
       if (g.god || inWin) {
         WF.cellObs(s, y, x, cfg, obs);
-        WF.color(obs, L, obs[2] ? WF.flickerAt(fk, y, x) : null, col);
-        if (g.god && g.heat && y >= 0 && y < H && x >= 0 && x < W) {
-          const q = 0.8 * g.heat[y * W + x];
-          col[0] = col[0] * (1 - q) + 255 * q; col[1] = col[1] * (1 - q); col[2] = col[2] * (1 - q) + 255 * q;
+        WF.color(obs, L, t, va, ph, col);
+        if (g.god && g.heat && inWorld) {
+          const q = HEAT_MIX * g.heat[k];
+          for (let c = 0; c < 3; c++) col[c] += q * (PAL.ink[c] - col[c]);
         }
-      } else if (g.overlay && y >= 0 && y < H && x >= 0 && x < W && g.seen[y * W + x]) {
-        for (let k = 0; k < 6; k++) mem[k] = g.memory[(y * W + x) * 6 + k];
-        WF.color(mem, 1.0, null, col);
-        const gray = (col[0] + col[1] + col[2]) / 3;
-        for (let k = 0; k < 3; k++) col[k] = 0.55 * (0.35 * col[k] + 0.65 * gray);
+      } else if (g.overlay && inWorld && g.seen[k]) {
+        for (let c = 0; c < 6; c++) mem[c] = g.memory[k * 6 + c];
+        WF.color(mem, 1.0, t, va, ph, col);
+        for (let c = 0; c < 3; c++) col[c] += MEMORY_DIM * (PAL.ground[c] - col[c]);
       } else { col[0] = FOG[0]; col[1] = FOG[1]; col[2] = FOG[2]; }
-      d[p] = col[0]; d[p + 1] = col[1]; d[p + 2] = col[2]; d[p + 3] = 255;
+      d[p] = Math.floor(col[0] + 0.5); d[p + 1] = Math.floor(col[1] + 0.5); d[p + 2] = Math.floor(col[2] + 0.5); d[p + 3] = 255;
     }
     octx.putImageData(img, 0, 0);
-    ctx.fillStyle = `rgb(${FOG})`; ctx.fillRect(0, 0, CANVAS, CANVAS);
+    ctx.fillStyle = css(FOG); ctx.fillRect(0, 0, CANVAS, CANVAS);
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(off, (x0 - ox) * z, (y0 - oy) * z, w * z, h * z);
+    const bx = (x0 - ox) * z, by = (y0 - oy) * z;
+    ctx.drawImage(off, bx, by, w * z, h * z);
+
+    // grid: every cell inset by the gap, the background shows through
+    const gap = WF.gapPx(Math.max(1, Math.round(z)));
+    if (gap) {
+      const a = gap >> 1, b = gap - a;
+      ctx.fillStyle = css(PAL.ground);
+      for (let i = 0; i <= w; i++) ctx.fillRect(bx + i * z - b, by, gap, h * z);
+      for (let j = 0; j <= h; j++) ctx.fillRect(bx, by + j * z - b, w * z, gap);
+    }
 
     if (g.god) {
-      ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineWidth = 1;
+      ctx.strokeStyle = css(PAL.ink); ctx.lineWidth = 1;
       ctx.strokeRect((s.ax - R - ox) * z, (s.ay - R - oy) * z, cfg.window * z, cfg.window * z);
     }
     const ax = (s.ax + 0.5 - ox) * z, ay = (s.ay + 0.5 - oy) * z, r = Math.max(z * 0.45, 3);
-    ctx.fillStyle = "#fff"; ctx.strokeStyle = "#141414"; ctx.lineWidth = 1;
+    ctx.fillStyle = css(PAL.ink); ctx.strokeStyle = css(PAL.ground); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.arc(ax, ay, r, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
-    ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ax, ay);
+    ctx.strokeStyle = css(PAL.ink); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ax, ay);
     ctx.lineTo(ax + WF.DX[s.facing] * r * 1.7, ay + WF.DY[s.facing] * r * 1.7); ctx.stroke();
 
     if (g.minimap) drawMinimap();
@@ -434,18 +453,19 @@ self.onmessage = (e) => {
   function drawMinimap() {
     const s = g.state, size = 168, m = 10, x = CANVAS - size - m, y = CANVAS - size - m;
     if (miniFrame++ % 6 === 0) {
-      const img = mctx.createImageData(W, H), d = img.data, L = WF.light(s.t, cfg.day_length);
+      const img = mctx.createImageData(W, H), d = img.data, L = WF.light(s.t, cfg.day_length), t = smoothT();
       for (let yy = 0; yy < H; yy++) for (let xx = 0; xx < W; xx++) {
-        WF.cellObs(s, yy, xx, cfg, obs); WF.color(obs, L, null, col);
-        const p = (yy * W + xx) * 4; d[p] = col[0]; d[p + 1] = col[1]; d[p + 2] = col[2]; d[p + 3] = 255;
+        const k = yy * W + xx;
+        WF.cellObs(s, yy, xx, cfg, obs); WF.color(obs, L, t, g.tex.variant[k], g.tex.phase[k], col);
+        const p = k * 4; d[p] = col[0]; d[p + 1] = col[1]; d[p + 2] = col[2]; d[p + 3] = 255;
       }
       mctx.putImageData(img, 0, 0);
     }
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(mini, x, y, size, size);
-    ctx.strokeStyle = "rgba(230,230,230,0.9)"; ctx.lineWidth = 1; ctx.strokeRect(x - 0.5, y - 0.5, size + 1, size + 1);
+    ctx.strokeStyle = css(PAL.mix(PAL.ground, PAL.ink, 0.6)); ctx.lineWidth = 1; ctx.strokeRect(x - 0.5, y - 0.5, size + 1, size + 1);
     const k = size / W;
-    ctx.strokeStyle = "#fff"; ctx.strokeRect(x + (s.ax - R) * k, y + (s.ay - R) * k, Math.max(cfg.window * k, 2), Math.max(cfg.window * k, 2));
+    ctx.strokeStyle = css(PAL.ink); ctx.strokeRect(x + (s.ax - R) * k, y + (s.ay - R) * k, Math.max(cfg.window * k, 2), Math.max(cfg.window * k, 2));
   }
 
   function hud() {
@@ -468,6 +488,7 @@ self.onmessage = (e) => {
     $("speed").textContent = g.paused ? "paused" : `${SPEEDS[g.speed]} /s`;
     $("tankv").textContent = cfg.infinite_water ? "∞" : `${s.tank} / ${cfg.tank}`;
     $("tank").style.width = `${(100 * s.tank / cfg.tank).toFixed(0)}%`;
+    $("tankv").classList.toggle("warn", !cfg.infinite_water && s.tank === 0);
     if (g.inspector) {
       const c = g.hover;
       let txt = "Hover a cell on the map.";

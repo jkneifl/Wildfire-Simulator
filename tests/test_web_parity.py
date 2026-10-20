@@ -1,5 +1,6 @@
 """The browser port (web/wildfire.js) must reproduce the Python simulator bit for bit."""
 
+import base64
 import hashlib
 import json
 import shutil
@@ -11,6 +12,7 @@ import pytest
 from wildfire import Config
 from wildfire.dynamics import step
 from wildfire.env import fork_streams
+from wildfire.render.topdown import render
 from wildfire.rng import Purpose, uniform
 from wildfire.terrain import initial_state
 
@@ -60,7 +62,11 @@ def test_js_matches_python(overrides, seed, steps):
         "actions": actions,
         "checkpoints": checkpoints,
         "forks": 3,
+        "render": [-3, -3, cfg.height + 6, cfg.width + 6],
     }
     got = run_node(job)
+    rgb = np.frombuffer(base64.b64decode(got.pop("render")), np.uint8)
+    expect_rgb = render(s, (-3, -3, cfg.height + 6, cfg.width + 6), cfg, ppc=1)
+    assert np.array_equal(rgb.reshape(expect_rgb.shape), expect_rgb)
     assert got.pop("forks") == [str(v) for v in fork_streams(s, 3)]
     assert got == expect
