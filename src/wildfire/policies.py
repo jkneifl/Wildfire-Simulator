@@ -188,8 +188,8 @@ class ExploreReturn(RandomWalk):
         r, T = self.cfg.window // 2, self.cfg.tile
         ty, tx = self.tile
         return (
-            abs(x - (tx * T + (T - 1) / 2)) <= r + T / 2
-            and abs(y - (ty * T + (T - 1) / 2)) <= r + T / 2
+            abs(x - (tx * T + (T - 1) / 2)) <= r + (T - 1) / 2
+            and abs(y - (ty * T + (T - 1) / 2)) <= r + (T - 1) / 2
         )
 
     def dist(self, x: int, y: int) -> float:

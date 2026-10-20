@@ -72,6 +72,8 @@ def test_game_smoke(small, tmp_path, monkeypatch):
 
     (ep,) = (tmp_path / "recordings").iterdir()
     assert replay(ep)["steps"] == 3
+    g.handle(key(pygame.K_k))  # fork preview
+    assert g.god and g.heat.shape == g.state.shape and 0 <= g.heat.min() <= g.heat.max() <= 1
     g.draw()
     g.god = False
     g.overlay = True

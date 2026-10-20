@@ -186,7 +186,17 @@ class Game:
             self.recorder = None
 
     def fork_preview(self) -> None:
-        self.message = "fork preview needs wildfire.metrics.burn_probability (M5)"
+        """Toggle the burn-probability heat map over 16 futures x 100 steps (god view)."""
+        if self.heat is not None:
+            self.heat = None
+            return
+        from ..metrics import burn_probability
+
+        t0 = time.perf_counter()
+        self.heat = burn_probability(self.state, self.cfg, n=16, steps=100).astype(np.float32)
+        self.god = True
+        self.message = f"fork preview at step {int(self.state.t)} ({time.perf_counter() - t0:.1f}s)"
+        self.acc = 0.0  # do not catch up on the steps missed while forking
 
     def zoom_at(self, pos, factor: float) -> None:
         h, w = self.state.shape

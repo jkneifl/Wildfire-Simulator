@@ -145,6 +145,40 @@ Plots: [time series](docs/calibration/calibrated/timeseries.png),
 
 ![calibrated time series](docs/calibration/calibrated/timeseries.png)
 
+## Evaluation utilities (M5)
+
+`metrics.py`: `global_stats`, `patch_stats` (component sizes via `scipy.ndimage.label`),
+`tile_stats` (per tile, over ground cells: vegetated fraction, mean stage / V_MAX, ash
+fraction, burning fraction, mean wetness / 255; batched), `monte_carlo(state, cfg, steps, n,
+tiles)` (tile statistics of `n` forked futures), `burn_probability` (used by the K preview),
+`retention_curve(series, lags, stat)`, `episode_tile_series(ep_dir)`, `energy_distance`
+and `mmd` (unbiased MMD², Gaussian kernel, median-heuristic bandwidth).
+
+```bash
+uv run python scripts/evaluate.py --out docs/evaluation                 # headless runs
+uv run python scripts/evaluate.py --episodes data/test --out /tmp/eval  # recorded episodes
+```
+
+Output from `scripts/evaluate.py` with its defaults (calibrated `configs/default.yaml`,
+256 × 256, 256 tiles of 16 × 16). Retention uses no-op runs with seeds 0–3, days 5–20,
+snapshots every 50 steps. For vegetated fraction, the correlation between τ and τ + Δt is
+0.885 at Δt = 50, 0.269 at 200 and −0.51 at 550. It then oscillates, with peaks of 0.49 at
+1150, 0.32 at 2250–2300 and 0.21 at 3300 steps. In this regime a tile's state is roughly
+anti-correlated with itself after about two days, and after about five days it is positively
+correlated again. That suggests a local burn–regrow cycle of about 1150 steps (4.8 days). This
+is a measured correlation, not a fitted model of the cycle. The ash fraction curve almost
+matches the vegetated one, since on ground cells the two are nearly complementary.
+
+Monte Carlo: 32 futures from seed 0 at τ = step 2460 (day 10), Δt ∈ {50, 200, 800}. The 4
+tiles are the 2 most vegetated and the 2 most burned at τ. For tile (6, 7), all 32 futures
+burn down by Δt = 200 (vegetated fraction 0.98 → mean 0.05) and regrow to 0.76 by
+Δt = 800. Burned tiles (0, 0) and (1, 0) regrow from 0.02–0.04 to 0.89–0.90. Energy distance
+to the last-seen value grows with Δt for the burned tiles (0.23 → 0.78 → 2.7). Per-tile
+numbers are in `docs/evaluation/evaluation.json`. Plots:
+[retention](docs/evaluation/retention.png), [Monte Carlo](docs/evaluation/monte_carlo.png).
+
+![retention](docs/evaluation/retention.png)
+
 ## Decisions
 
 Choices where the spec is ambiguous. Each keeps determinism and the observable/privileged split.
@@ -194,3 +228,9 @@ Choices where the spec is ambiguous. Each keeps determinism and the observable/p
   simulation's purpose list), keyed by the policy seed and a per-call counter.
 - **Episode seeds.** `generate` uses seed `--seed + i` for episode `i`, for both the world
   and the policy.
+- **Tile statistics** use only ground cells of a tile, and tiles at the world edge are
+  partial. The retention curve pools Pearson correlations over all tiles, τ and runs. Static
+  terrain differences between tiles are included and are not removed.
+- **Fork preview (K)** blocks the game for about 2 s on 256 × 256 (16 × 100 no-op steps). The
+  heat map (magenta = burns in all futures) stays until K is pressed again or the world is
+  reset or loaded.
