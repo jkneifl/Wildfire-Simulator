@@ -10,7 +10,33 @@ uv sync
 uv run pytest
 uv run python -m wildfire.cli run --config configs/default.yaml --steps 2000
 uv run python -m wildfire.app.play --seed 0     # play
+uv run python -m wildfire.cli generate --config configs/default.yaml --policy explore_return \
+    --episodes 10 --steps 2000 --out data/test
+uv run python -m wildfire.cli replay data/test/ep_0000
 ```
+
+## Environment API
+
+```python
+from wildfire import Config, WildfireEnv, VecWildfire
+
+env = WildfireEnv(Config.from_yaml("configs/default.yaml"))
+obs, info = env.reset(seed=0)        # obs: grid (V, V, 6), rgb, light, agent{facing, tank}
+obs, reward, terminated, truncated, info = env.step(action)
+state = env.get_state()              # privileged WorldState (copy)
+env.set_state(state)
+futures = env.fork(n=16, steps=200)  # batched WorldState (16, H, W), one stream id per future
+vec = VecWildfire(cfg, n=8)          # steps 8 worlds with arrays (8, H, W)
+```
+
+`info` holds `step`, the agent's own position `pos`, the tiles intersecting the window and the
+per-tile `first_seen` / `last_seen` steps (−1 = never). Gymnasium spaces are defined when the
+optional `gym` extra is installed (`uv sync --extra gym`).
+
+Episode directories follow SPEC 9 (`meta.json`, `actions.npy`, `agent.npy`, `obs_grid.npy`,
+optional `obs_rgb.npy`, `tiles_seen.npy` with shape `(2, rows, cols)` = first/last seen,
+`state/step_XXXXXX.npz` every `snapshot_every` episode steps plus the final step).
+`EpisodeDataset(root)` loads them with NumPy (memory-mapped).
 
 ## Game controls
 
@@ -41,8 +67,12 @@ uv run python -m wildfire.app.play --seed 0     # play
 | `dynamics.py` | pure `step(state, action, cfg)`, `light(t, D)`, spread-weight hook |
 | `observe.py` | window crop, observation buckets, `observe`, `privileged` |
 | `render/palette.py`, `render/topdown.py` | palette; pure NumPy `render(state, window, cfg)` |
+| `tiles.py` | tile indices, `tiles_in_window`, `extract_tile`, `TileTracker` |
+| `env.py` | `WildfireEnv`, `VecWildfire`, `fork` |
+| `record.py` | `Recorder`, `replay`, `EpisodeDataset` |
+| `policies.py` | scripted policies |
 | `app/play.py` | pygame-ce frontend |
-| `cli.py` | `run` (headless statistics) |
+| `cli.py` | `run` (headless statistics), `generate`, `replay` |
 
 ## Performance
 
@@ -53,6 +83,9 @@ no-op actions, measured with `wildfire.cli run`:
 |---|---|
 | 256 × 256 (2000 steps, seed 0) | 696 |
 | 2048 × 2048 (200 steps, seed 0, 23k–49k burning cells) | 11.2 |
+
+Environment overhead on 256 × 256 (500 no-op steps, seed 0): `WildfireEnv` 637 steps/s without
+and 522 with `rgb`; `VecWildfire(n=16)` 702 world-steps/s; `fork(16, 100)` 2.2 s.
 
 ## Decisions
 
@@ -89,3 +122,15 @@ Choices where the spec is ambiguous. Each keeps determinism and the observable/p
 - **Game.** The last-seen memory stores the observable grid of every cell when it was last in
   the window. The minimap always shows the live world (it is a demo aid, not an observation).
   If the simulation falls behind, steps are dropped (at most 5 per frame) rather than queued.
+- **Fork streams.** Future `i` of a state gets stream `key(stream, i, t, FORK) mod 2**63`,
+  so forks of different states or times do not share streams. Futures use no-op actions
+  unless `actions` is given.
+- **`info["pos"]`.** The agent's own position is given to policies (it is known from the
+  agent's own moves); it is not part of `obs`, which stays egocentric as in SPEC 4.
+- **Recording** starts from any state. `meta.json` has `from_reset = true` when the episode
+  starts at `initial_state(seed, stream)`; replay then rebuilds from the seed and also checks
+  the step-0 snapshot, otherwise it starts from the step-0 snapshot. Replay checks every
+  snapshot, every observation grid and the agent trajectory. Game recordings go to
+  `recordings/ep_<date>_<time>`. `preview.mp4` is not written (no video dependency).
+- **Episode seeds.** `generate` uses seed `--seed + i` for episode `i`, for both the world
+  and the policy.

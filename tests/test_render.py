@@ -63,6 +63,15 @@ def test_game_smoke(small, tmp_path, monkeypatch):
     assert int(g.state.t) == int(saved.t)
     g.handle(key(pygame.K_r, pygame.KMOD_SHIFT))
     assert g.seed == 1
+    monkeypatch.chdir(tmp_path)
+    g.handle(key(pygame.K_F2))  # start recording mid-game
+    for _ in range(3):
+        g.sim_step()
+    g.handle(key(pygame.K_F2))
+    from wildfire.record import replay
+
+    (ep,) = (tmp_path / "recordings").iterdir()
+    assert replay(ep)["steps"] == 3
     g.draw()
     g.god = False
     g.overlay = True

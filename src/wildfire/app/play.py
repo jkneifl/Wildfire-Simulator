@@ -170,10 +170,20 @@ class Game:
         self.message = f"loaded {path}"
 
     def toggle_recording(self) -> None:
-        self.message = "recording needs wildfire.record (M3)"
+        if self.recorder is not None:
+            self.stop_recording()
+            return
+        from ..record import Recorder
+
+        out = Path("recordings") / time.strftime("ep_%Y%m%d_%H%M%S")
+        self.recorder = Recorder(out, self.cfg, self.state, policy="human")
+        self.message = f"recording to {out}"
 
     def stop_recording(self) -> None:
-        pass
+        if self.recorder is not None:
+            d = self.recorder.close()
+            self.message = f"saved recording {d} ({self.recorder.n_steps} steps)"
+            self.recorder = None
 
     def fork_preview(self) -> None:
         self.message = "fork preview needs wildfire.metrics.burn_probability (M5)"
