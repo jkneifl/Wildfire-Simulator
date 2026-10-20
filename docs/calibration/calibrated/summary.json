@@ -1,0 +1,76 @@
+{
+  "config": "configs/default.yaml",
+  "overrides": {},
+  "world": "256x256",
+  "days": 30,
+  "burn_in_days": 5,
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "per_seed": {
+    "0": {
+      "frac_steps_with_fire": 1.0,
+      "longest_fire_free_days": 0.0,
+      "mean_active_fires": 450.1951666666667,
+      "veg_mean": 0.5863805370601564,
+      "veg_min": 0.41999583853516437,
+      "veg_max": 0.7646171452351228,
+      "burned_mean": 0.41301418654922084,
+      "burned_max": 0.5800041614648356
+    },
+    "1": {
+      "frac_steps_with_fire": 1.0,
+      "longest_fire_free_days": 0.0,
+      "mean_active_fires": 435.54466666666667,
+      "veg_mean": 0.5993324894807417,
+      "veg_min": 0.358267443473436,
+      "veg_max": 0.8189416007768068,
+      "burned_mean": 0.39997743272298514,
+      "burned_max": 0.6410216396171452
+    },
+    "2": {
+      "frac_steps_with_fire": 0.9316666666666666,
+      "longest_fire_free_days": 0.25416666666666665,
+      "mean_active_fires": 425.8641666666667,
+      "veg_mean": 0.6015183624635873,
+      "veg_min": 0.2788181439866833,
+      "veg_max": 0.8842592592592593,
+      "burned_mean": 0.39806671348314604,
+      "burned_max": 0.7211818560133166
+    },
+    "3": {
+      "frac_steps_with_fire": 0.9455,
+      "longest_fire_free_days": 0.5,
+      "mean_active_fires": 434.94283333333334,
+      "veg_mean": 0.5979582148471817,
+      "veg_min": 0.3232417811069496,
+      "veg_max": 0.8597066167290887,
+      "burned_mean": 0.4014600586072965,
+      "burned_max": 0.6767582188930503
+    },
+    "4": {
+      "frac_steps_with_fire": 0.9996666666666667,
+      "longest_fire_free_days": 0.008333333333333333,
+      "mean_active_fires": 443.315,
+      "veg_mean": 0.5957931896472003,
+      "veg_min": 0.4213829934803718,
+      "veg_max": 0.7342384519350812,
+      "burned_mean": 0.4036497491561474,
+      "burned_max": 0.5786170065196282
+    }
+  },
+  "mean": {
+    "frac_steps_with_fire": 0.9753666666666667,
+    "longest_fire_free_days": 0.1525,
+    "mean_active_fires": 437.9723666666667,
+    "veg_mean": 0.5961965586997734,
+    "veg_min": 0.360341240116521,
+    "veg_max": 0.8123526147870719,
+    "burned_mean": 0.40323362810375923,
+    "burned_max": 0.6395165765015952
+  }
+}

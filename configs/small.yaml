@@ -1,0 +1,23 @@
+# Small 64 x 64 world for tests and quick experiments.
+height: 64
+width: 64
+day_length: 240
+start_hour: 6.0
+v_max: 4
+beta: 0.1  # calibrated (M4), spec start value 0.35
+m_night: 0.5
+wet_block: 128
+burn_base: 3
+burn_per_veg: 2
+p_lightning: 1.0e-6  # calibrated (M4), spec start value 2e-7
+p_grow: 0.01
+p_seed: 0.002
+regrow_delay: 120
+dry_rate: 2.0
+tank: 20
+infinite_water: false
+window: 33
+pixels_per_cell: 4
+render_grid: false
+tile: 16
+snapshot_every: 50

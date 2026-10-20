@@ -1,0 +1,54 @@
+{
+  "config": "configs/default.yaml",
+  "overrides": {},
+  "world": "256x256",
+  "days": 30,
+  "burn_in_days": 5,
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "per_seed": {
+    "0": {
+      "frac_steps_with_fire": 0.6483333333333333,
+      "longest_fire_free_days": 2.1791666666666667,
+      "mean_active_fires": 501.72766666666666,
+      "veg_mean": 0.4535864428723355,
+      "veg_min": 0.08381883756415591,
+      "veg_max": 0.8394368150922458,
+      "burned_mean": 0.5453873832477921,
+      "burned_max": 0.9110313497017617
+    },
+    "1": {
+      "frac_steps_with_fire": 0.6228333333333333,
+      "longest_fire_free_days": 2.9,
+      "mean_active_fires": 428.1066666666667,
+      "veg_mean": 0.5427533291718686,
+      "veg_min": 0.16767235400194203,
+      "veg_max": 0.9151234567901234,
+      "burned_mean": 0.4559938762888981,
+      "burned_max": 0.8322409488139825
+    },
+    "2": {
+      "frac_steps_with_fire": 0.6448333333333334,
+      "longest_fire_free_days": 1.4166666666666667,
+      "mean_active_fires": 456.0945,
+      "veg_mean": 0.5267508554122162,
+      "veg_min": 0.07507976140934942,
+      "veg_max": 0.9595470939103898,
+      "burned_mean": 0.47258450085541215,
+      "burned_max": 0.9249202385906505
+    }
+  },
+  "mean": {
+    "frac_steps_with_fire": 0.6386666666666667,
+    "longest_fire_free_days": 2.165277777777778,
+    "mean_active_fires": 461.9762777777778,
+    "veg_mean": 0.5076968758188068,
+    "veg_min": 0.10885698432514912,
+    "veg_max": 0.904702455264253,
+    "burned_mean": 0.4913219201307008,
+    "burned_max": 0.8893975123687983
+  }
+}
