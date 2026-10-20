@@ -392,7 +392,7 @@ self.onmessage = (e) => {
   // ---- drawing ---------------------------------------------------------------------------
   const col = [0, 0, 0];
   const PAL = WF.PAL, FOG = PAL.fog, css = (c) => `rgb(${c[0]},${c[1]},${c[2]})`;
-  const MEMORY_DIM = 0.55, HEAT_MIX = 0.75; // as in app/play.py
+  const MEMORY_DIM = 0.35, HEAT_MIX = 0.75; // as in app/play.py
   const smoothT = () => g.state.t + (g.paused || g.forking ? 0 : Math.min(g.acc * SPEEDS[g.speed], 1));
   function draw() {
     const s = g.state, z = zoomVal(), [ox, oy] = origin();
@@ -416,8 +416,9 @@ self.onmessage = (e) => {
         }
       } else if (g.overlay && inWorld && g.seen[k]) {
         for (let c = 0; c < 6; c++) mem[c] = g.memory[k * 6 + c];
-        WF.color(mem, 1.0, t, va, ph, col);
-        for (let c = 0; c < 3; c++) col[c] += MEMORY_DIM * (PAL.ground[c] - col[c]);
+        WF.color(mem, L, t, va, ph, col);
+        const luma = 0.299 * col[0] + 0.587 * col[1] + 0.114 * col[2]; // grayscale memory
+        for (let c = 0; c < 3; c++) col[c] = luma + MEMORY_DIM * (PAL.ground[c] - luma);
       } else { col[0] = FOG[0]; col[1] = FOG[1]; col[2] = FOG[2]; }
       d[p] = Math.floor(col[0] + 0.5); d[p + 1] = Math.floor(col[1] + 0.5); d[p + 2] = Math.floor(col[2] + 0.5); d[p + 3] = 255;
     }

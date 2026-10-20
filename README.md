@@ -240,7 +240,7 @@ Choices where the spec is ambiguous. Each keeps determinism and the observable/p
     `0.35 + 0.65 L` is still applied to all other cells.
   - The grid gap is inset `g // 2` on the left and top and the rest on the right and bottom,
     and it is drawn in `GROUND` at all times of day.
-  - Overlays in the game use mixes of the base colours: last seen is `mix(c, GROUND, 0.55)`,
+  - Overlays in the game use mixes of the base colours: last seen is grayscale (Rec. 601 luma, current light) mixed 0.35 towards `GROUND`,
     the fork preview is `mix(c, INK, 0.75 p)`, and the HUD uses `INK`, `ACCENT` for
     highlights, `FIRE` for warnings and `mix(GROUND, INK, 0.6)` for secondary text.
   - Water and wetness colours are implemented as proposed and still need confirmation.

@@ -25,7 +25,8 @@ AGENT_ZOOM = 12  # px per cell in agent view
 SPEEDS = (2, 5, 10, 20, 40)
 MINIMAP = 180
 SAVE_PATH = Path("saves/quicksave.npz")
-MEMORY_DIM = 0.55  # last-seen overlay: mix towards GROUND
+MEMORY_DIM = 0.35  # last-seen overlay: grayscale, then mixed towards GROUND
+LUMA = np.array([0.299, 0.587, 0.114])  # Rec. 601 luminance weights
 HEAT_MIX = 0.75  # fork preview: mix towards INK by HEAT_MIX * burn probability
 MOVE_KEYS = {
     pygame.K_UP: A.MOVE_N, pygame.K_w: A.MOVE_N,
@@ -250,7 +251,8 @@ class Game:
             outside = np.broadcast_to(np.array(P.FOG, np.float64), c.shape)
             if self.overlay:
                 mem = np.stack([crop(self.memory[..., i], y0, x0, h, w) for i in range(6)], -1)
-                m = colors(mem, 1.0, self.smooth_t(), var, phase).astype(np.float64)
+                m = colors(mem, L, self.smooth_t(), var, phase).astype(np.float64)
+                m = np.repeat((m @ LUMA)[..., None], 3, axis=-1)  # grayscale
                 m = m + MEMORY_DIM * (np.array(P.GROUND) - m)  # dimmed towards the background
                 seen = crop(self.seen, y0, x0, h, w)[..., None]
                 outside = np.where(seen, m, outside)
