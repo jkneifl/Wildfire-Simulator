@@ -70,6 +70,7 @@ class Game:
 
     def set_state(self, s: WorldState) -> None:
         self.state = s
+        self.pending, self.held = None, []  # no key action carries over into a new world
         self.memory = np.zeros((*s.shape, 6), np.uint8)
         self.seen = np.zeros(s.shape, bool)
         self.heat = None

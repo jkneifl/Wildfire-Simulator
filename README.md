@@ -38,6 +38,23 @@ optional `obs_rgb.npy`, `tiles_seen.npy` with shape `(2, rows, cols)` = first/la
 `state/step_XXXXXX.npz` every `snapshot_every` episode steps plus the final step).
 `EpisodeDataset(root)` loads them with NumPy (memory-mapped).
 
+## Browser version
+
+`web/` is a browser build of the game: `web/wildfire.js` is a JavaScript port of the
+simulation core (RNG, terrain, actions, step, observation buckets, colours) and
+`web/index.html` is the frontend (agent and god view, last-seen overlay, minimap, inspector,
+pause/step/speed, reset, save/load in browser storage, fork preview in Web Workers, touch
+controls). F2 recording is Python-only. The port is checked bit for bit against the Python
+package by `tests/test_web_parity.py`, which runs `web/parity.js` under Node. Covered: 64 × 64
+with high lightning (600 steps), 40 × 70 with day length 50 and tank 3 (400 steps), and the
+default 256 × 256 (300 steps), with random moves, ignite and water, plus fork stream ids. The
+test is skipped if `node` is not installed. Any change to the Python rules must be mirrored in
+`web/wildfire.js`; the parity test fails otherwise. To run it locally:
+
+```bash
+python3 -m http.server 8765 --directory web    # then open http://localhost:8765
+```
+
 ## Game controls
 
 | key | action |
@@ -231,6 +248,10 @@ Choices where the spec is ambiguous. Each keeps determinism and the observable/p
 - **Tile statistics** use only ground cells of a tile, and tiles at the world edge are
   partial. The retention curve pools Pearson correlations over all tiles, τ and runs. Static
   terrain differences between tiles are included and are not removed.
+- **Small worlds have extra water.** Rivers are kept whole, and lakes only fill up to
+  `water_frac`, so on small maps the rivers alone can exceed it. Seeds 0–29 at 64 × 64 reach
+  up to 15.6 % water (8.0 % at 256 × 256). Left unchanged, because changing it would change
+  existing worlds.
 - **Fork preview (K)** blocks the game for about 2 s on 256 × 256 (16 × 100 no-op steps). The
   heat map (magenta = burns in all futures) stays until K is pressed again or the world is
   reset or loaded.

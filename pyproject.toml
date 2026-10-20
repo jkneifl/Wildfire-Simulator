@@ -18,6 +18,9 @@ torch = ["torch>=2.2"]
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.5", "matplotlib>=3.8"]
 
+[project.scripts]
+wildfire = "wildfire.cli:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

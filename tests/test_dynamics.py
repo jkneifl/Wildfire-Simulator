@@ -230,3 +230,26 @@ def test_world_edge_is_rock(small):
     assert (int(s.ax), int(s.ay)) == (0, 0)
     s = step(s, A.IGNITE, cfg)  # target outside the world
     assert s.fire.max() == 0
+
+
+def test_lightning_rate_and_targets(small):
+    cfg = small.replace(p_lightning=0.01, beta=0.0, p_grow=0.0, p_seed=0.0)
+    s = flat_state(cfg, veg=2)
+    s.veg[:, :32] = 0  # bare half never ignites
+    strikes = 0
+    for _ in range(20):
+        s.fire[:] = 0  # count fresh strikes only
+        s = step(s, 0, cfg)
+        strikes += int((s.fire > 0).sum())
+        assert not (s.fire[:, :32] > 0).any()
+    n = 20 * 64 * 32
+    assert abs(strikes / n - 0.01) < 4 * np.sqrt(0.01 * 0.99 / n)
+
+
+def test_ash_age_saturates(small):
+    cfg = small.replace(p_lightning=0.0, p_seed=0.0)
+    s = flat_state(cfg, veg=0)
+    s.ash_age[0, 0] = 65534
+    s.ash_age[0, 1] = 65535
+    s = run(s, [0, 0], cfg)
+    assert s.ash_age[0, 0] == 65535 and s.ash_age[0, 1] == 65535 and s.ash_age.dtype == np.uint16

@@ -1,0 +1,510 @@
+<title>Wildfire Testbed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  /* Layout: map stage left (square, fluid), lookout-tower instrument panel right; stacks on phones.
+     Single dark world on purpose: the map is a night-capable sim view. */
+  :root {
+    --bg: #11161d;
+    --panel: #19212b;
+    --line: #2a3542;
+    --ink: #e8e2d4;
+    --muted: #8e9aa7;
+    --ember: #f08a32;
+    --water: #5b8fd6;
+    --leaf: #6fa24a;
+    --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+    --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; }
+  .app { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 14px 24px; display: grid; gap: 14px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+  h1 { font-family: var(--display); font-weight: 700; font-size: 1.9rem; letter-spacing: 0.02em; margin: 0; text-wrap: balance; }
+  h1 span { color: var(--ember); }
+  .sub { color: var(--muted); font-size: 0.92rem; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 14px; align-items: start; }
+  .stage { position: relative; min-width: 0; display: grid; gap: 10px; justify-items: center; }
+  canvas#map { display: block; width: min(100%, calc(100vh - 120px)); min-width: 280px; max-width: 100%; aspect-ratio: 1 / 1; height: auto;
+    background: #12121a; border: 1px solid var(--line); border-radius: 4px; touch-action: none; image-rendering: pixelated; }
+  canvas#map:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
+  .toast { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); background: rgba(17, 22, 29, 0.88); border: 1px solid var(--line);
+    padding: 6px 12px; border-radius: 4px; font-family: var(--mono); font-size: 0.8rem; color: var(--ink); max-width: 90%; text-align: center; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 14px; display: grid; gap: 14px; min-width: 0; }
+  .label { font-family: var(--display); font-weight: 600; font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .clock { display: grid; gap: 6px; }
+  .clock .time { font-family: var(--mono); font-size: 2rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
+  .clock .day { font-family: var(--display); font-size: 1.1rem; color: var(--muted); }
+  .bar { height: 8px; background: #0d1117; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+  .bar > i { display: block; height: 100%; background: linear-gradient(90deg, #6b5a2a, #f3d36b); width: 0; }
+  .bar.tank > i { background: var(--water); }
+  .readouts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; margin: 0; }
+  .readouts div { display: grid; gap: 2px; min-width: 0; }
+  .readouts dt { font-family: var(--display); font-size: 0.74rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .readouts dd { margin: 0; font-family: var(--mono); font-size: 1rem; font-variant-numeric: tabular-nums; }
+  .readouts dd.fire { color: var(--ember); }
+  .controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  button { font: 600 0.82rem/1.1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); background: #222c38;
+    border: 1px solid var(--line); border-radius: 3px; padding: 8px 6px; cursor: pointer; display: grid; gap: 2px; justify-items: center; }
+  button kbd { font: 400 0.7rem var(--mono); color: var(--muted); text-transform: none; letter-spacing: 0; }
+  button:hover { border-color: #3c4a5a; }
+  button:focus-visible { outline: 2px solid var(--ember); outline-offset: 1px; }
+  button[aria-pressed="true"] { background: #33261a; border-color: var(--ember); color: #ffd9b0; }
+  .seedrow { display: flex; gap: 6px; align-items: center; }
+  .seedrow input { width: 100%; min-width: 0; font: 1rem var(--mono); background: #0d1117; color: var(--ink); border: 1px solid var(--line); border-radius: 3px; padding: 6px 8px; }
+  .inspector { font-family: var(--mono); font-size: 0.8rem; line-height: 1.5; white-space: pre-wrap; color: var(--ink); background: #0d1117;
+    border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; min-height: 7.5em; }
+  .legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; font-size: 0.82rem; color: var(--muted); }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+  .legend i { width: 12px; height: 12px; border-radius: 2px; flex: none; }
+  .pad { display: none; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
+  .pad .dpad { display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(3, 44px); gap: 4px; }
+  .pad .dpad button { padding: 0; font-size: 1.1rem; }
+  .pad .acts { display: grid; gap: 6px; }
+  .pad .acts button { width: 96px; padding: 10px 6px; }
+  @media (pointer: coarse) { .pad { display: flex; } }
+  .keys { font-size: 0.82rem; color: var(--muted); line-height: 1.6; }
+  .keys kbd { font-family: var(--mono); font-size: 0.75rem; color: var(--ink); background: #0d1117; border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; }
+  footer { color: var(--muted); font-size: 0.85rem; max-width: 75ch; line-height: 1.5; }
+  footer code { font-family: var(--mono); font-size: 0.8rem; color: var(--ink); }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: minmax(0, 1fr); }
+    canvas#map { width: 100%; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="app">
+  <header>
+    <h1>Wildfire <span>Testbed</span></h1>
+    <p class="sub">Walk the map, set fires, spray water. Day and night change how fast fire spreads and forest regrows.</p>
+  </header>
+
+  <main class="layout">
+    <section class="stage" aria-label="Map">
+      <canvas id="map" width="768" height="768" tabindex="0" aria-label="Wildfire map. Use WASD or arrow keys to move, F to ignite, Space to spray water."></canvas>
+      <div class="toast" id="toast" hidden></div>
+      <div class="pad" aria-label="Touch controls">
+        <div class="dpad">
+          <span></span><button data-act="1" aria-label="Move north">▲</button><span></span>
+          <button data-act="4" aria-label="Move west">◀</button><span></span><button data-act="2" aria-label="Move east">▶</button>
+          <span></span><button data-act="3" aria-label="Move south">▼</button><span></span>
+        </div>
+        <div class="acts">
+          <button data-act="5">Ignite</button>
+          <button data-act="6">Water</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="panel" aria-label="Status and controls">
+      <div class="clock">
+        <span class="label">Local time</span>
+        <div><span class="time" id="time">06:00</span> <span class="day" id="day">Day 1</span></div>
+        <div class="bar" title="Light level"><i id="light"></i></div>
+      </div>
+      <dl class="readouts">
+        <div><dt>Active fires</dt><dd class="fire" id="fires">0</dd></div>
+        <div><dt>Burned</dt><dd id="burned">0 %</dd></div>
+        <div><dt>Vegetation</dt><dd id="veg">0 %</dd></div>
+        <div><dt>Step</dt><dd id="step">0</dd></div>
+        <div><dt>Speed</dt><dd id="speed">10 /s</dd></div>
+        <div><dt>Light L</dt><dd id="lightv">0.50</dd></div>
+      </dl>
+      <div class="clock">
+        <span class="label">Water tank <span id="tankv">20 / 20</span></span>
+        <div class="bar tank"><i id="tank"></i></div>
+      </div>
+      <div class="controls">
+        <button id="b-view" aria-pressed="false">God view<kbd>Tab</kbd></button>
+        <button id="b-overlay" aria-pressed="false">Last seen<kbd>G</kbd></button>
+        <button id="b-mini" aria-pressed="true">Minimap<kbd>M</kbd></button>
+        <button id="b-pause" aria-pressed="false">Pause<kbd>P</kbd></button>
+        <button id="b-step">Step<kbd>N</kbd></button>
+        <button id="b-fork" aria-pressed="false">Futures<kbd>K</kbd></button>
+        <button id="b-slower">Slower<kbd>−</kbd></button>
+        <button id="b-faster">Faster<kbd>+</kbd></button>
+        <button id="b-insp" aria-pressed="false">Inspect<kbd>I</kbd></button>
+        <button id="b-save">Save<kbd>F5</kbd></button>
+        <button id="b-load">Load<kbd>F9</kbd></button>
+        <button id="b-same">Restart<kbd>⇧R</kbd></button>
+      </div>
+      <div class="seedrow">
+        <span class="label">Seed</span>
+        <input id="seed" type="number" min="0" step="1" value="0" aria-label="World seed">
+        <button id="b-new">New<kbd>R</kbd></button>
+      </div>
+      <div id="inspector" class="inspector" hidden></div>
+      <div class="legend" aria-label="Map legend">
+        <span><i style="background:rgb(156,176,84)"></i>Young growth</span>
+        <span><i style="background:rgb(26,86,36)"></i>Mature forest</span>
+        <span><i style="background:rgb(255,214,80)"></i>Fire (hot)</span>
+        <span><i style="background:rgb(196,48,20)"></i>Fire (dying)</span>
+        <span><i style="background:rgb(52,48,46)"></i>Fresh ash</span>
+        <span><i style="background:rgb(150,126,86)"></i>Bare ground</span>
+        <span><i style="background:rgb(40,92,170)"></i>Water</span>
+        <span><i style="background:rgb(112,112,118)"></i>Rock</span>
+      </div>
+      <p class="keys"><kbd>WASD</kbd>/<kbd>↑↓←→</kbd> move · <kbd>F</kbd> ignite · <kbd>Space</kbd> water the 3 × 3 cells in front.
+        Standing next to water refills the tank. In god view, scroll to zoom and drag to pan.</p>
+    </aside>
+  </main>
+
+  <footer>
+    Browser build of the Wildfire testbed simulator: 256 × 256 cells, 240-step day, 33 × 33 agent window. The rules and randomness
+    match the Python reference bit for bit, so seed <code>0</code> here is the same world as
+    <code>python -m wildfire.app.play --seed 0</code>. Futures (K) runs 16 forked futures for 100 steps and shades each cell by how
+    often it burns. Save and load keep one slot in this browser.
+  </footer>
+</div>
+
+<script src="wildfire.js"></script>
+<script>
+"use strict";
+(() => {
+  const cfg = { ...WF.DEFAULTS };
+  const H = cfg.height, W = cfg.width, N = H * W, R = cfg.window >> 1;
+  const SPEEDS = [2, 5, 10, 20, 40];
+  const AGENT_ZOOM = 12, CANVAS = 768;
+  const canvas = document.getElementById("map");
+  const ctx = canvas.getContext("2d");
+  const off = document.createElement("canvas");
+  const octx = off.getContext("2d");
+  const mini = document.createElement("canvas");
+  mini.width = W; mini.height = H;
+  const mctx = mini.getContext("2d");
+  const $ = (id) => document.getElementById(id);
+
+  const g = {
+    seed: 0, state: null, memory: new Uint8Array(N * 6), seen: new Uint8Array(N),
+    speed: 2, paused: false, god: false, overlay: false, minimap: true, inspector: false,
+    zoom: CANVAS / W, cam: [W / 2, H / 2], held: [], pending: null, acc: 0, last: 0,
+    heat: null, forking: false, hover: null, stepTimes: [],
+  };
+
+  // ---- simulation --------------------------------------------------------------------
+  const obs = new Uint8Array(6);
+  function remember() {
+    const s = g.state;
+    for (let y = Math.max(s.ay - R, 0); y <= Math.min(s.ay + R, H - 1); y++)
+      for (let x = Math.max(s.ax - R, 0); x <= Math.min(s.ax + R, W - 1); x++) {
+        WF.cellObs(s, y, x, cfg, obs);
+        g.memory.set(obs, (y * W + x) * 6);
+        g.seen[y * W + x] = 1;
+      }
+  }
+  function setState(s) {
+    g.state = s; g.memory.fill(0); g.seen.fill(0); g.heat = null; g.pending = null; g.held = [];
+    remember();
+  }
+  function reset(seed) {
+    g.seed = seed; $("seed").value = seed;
+    setState(WF.initialState(cfg, seed));
+    g.zoom = CANVAS / W; g.cam = [W / 2, H / 2];
+  }
+  function nextAction() {
+    if (g.pending !== null) { const a = g.pending; g.pending = null; return a; }
+    return g.held.length ? g.held[g.held.length - 1] : WF.A.NOOP;
+  }
+  function simStep() {
+    g.state = WF.step(g.state, nextAction(), cfg);
+    remember();
+    const now = performance.now();
+    g.stepTimes = g.stepTimes.filter((t) => now - t < 1000); g.stepTimes.push(now);
+  }
+
+  // ---- input ---------------------------------------------------------------------------
+  const MOVE = { KeyW: 1, ArrowUp: 1, KeyD: 2, ArrowRight: 2, KeyS: 3, ArrowDown: 3, KeyA: 4, ArrowLeft: 4 };
+  const press = (a) => { g.pending = a; if (a <= 4) { g.held = g.held.filter((h) => h !== a); g.held.push(a); } };
+  const release = (a) => { g.held = g.held.filter((h) => h !== a); };
+  let toastTimer = 0;
+  function toast(msg, ms = 2500) {
+    const t = $("toast"); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer); if (ms) toastTimer = setTimeout(() => (t.hidden = true), ms);
+  }
+
+  window.addEventListener("keydown", (e) => {
+    if (e.target instanceof HTMLInputElement) return;
+    const c = e.code;
+    if (c in MOVE) { e.preventDefault(); if (!e.repeat) press(MOVE[c]); return; }
+    if (e.repeat) return;
+    const handled = {
+      KeyF: () => press(WF.A.IGNITE), Space: () => press(WF.A.WATER), Tab: () => toggle("god"),
+      KeyG: () => toggle("overlay"), KeyM: () => toggle("minimap"), KeyI: () => toggle("inspector"),
+      KeyP: () => toggle("paused"), KeyN: () => g.paused && simStep(), KeyK: forkPreview,
+      Equal: faster, NumpadAdd: faster, Minus: slower, NumpadSubtract: slower,
+      KeyR: () => (e.shiftKey ? reset(g.seed) : reset(g.seed + 1)), F5: save, F9: load,
+      F2: () => toast("Recording is only in the Python version (F2 in wildfire.app.play)."),
+    }[c];
+    if (handled) { e.preventDefault(); handled(); }
+  });
+  window.addEventListener("keyup", (e) => { if (e.code in MOVE) release(MOVE[e.code]); });
+  window.addEventListener("blur", () => { g.held = []; });
+
+  document.querySelectorAll("[data-act]").forEach((b) => {
+    const a = +b.dataset.act;
+    b.addEventListener("pointerdown", (e) => { e.preventDefault(); press(a); });
+    for (const ev of ["pointerup", "pointerleave", "pointercancel"]) b.addEventListener(ev, () => release(a));
+  });
+
+  function toggle(k) { g[k] = !g[k]; syncButtons(); }
+  function faster() { g.speed = Math.min(g.speed + 1, SPEEDS.length - 1); }
+  function slower() { g.speed = Math.max(g.speed - 1, 0); }
+  const bind = (id, fn) => $(id).addEventListener("click", () => { fn(); canvas.focus(); });
+  bind("b-view", () => toggle("god")); bind("b-overlay", () => toggle("overlay"));
+  bind("b-mini", () => toggle("minimap")); bind("b-pause", () => toggle("paused"));
+  bind("b-step", () => { if (!g.paused) toggle("paused"); simStep(); });
+  bind("b-fork", forkPreview); bind("b-faster", faster); bind("b-slower", slower);
+  bind("b-insp", () => toggle("inspector")); bind("b-save", save); bind("b-load", load);
+  bind("b-same", () => reset(g.seed));
+  bind("b-new", () => reset(g.seed + 1));
+  $("seed").addEventListener("change", () => reset(Math.max(0, Math.floor(+$("seed").value || 0))));
+  function syncButtons() {
+    for (const [id, k] of [["b-view", "god"], ["b-overlay", "overlay"], ["b-mini", "minimap"], ["b-pause", "paused"], ["b-insp", "inspector"]])
+      $(id).setAttribute("aria-pressed", String(g[k]));
+    $("b-fork").setAttribute("aria-pressed", String(!!g.heat));
+    $("inspector").hidden = !g.inspector;
+  }
+
+  // camera: god view zooms around the pointer and pans by dragging
+  function zoomVal() { return g.god ? g.zoom : AGENT_ZOOM; }
+  function origin() {
+    const z = zoomVal();
+    const [cx, cy] = g.god ? g.cam : [g.state.ax + 0.5, g.state.ay + 0.5];
+    return [cx - CANVAS / (2 * z), cy - CANVAS / (2 * z)];
+  }
+  function canvasPos(e) {
+    const r = canvas.getBoundingClientRect();
+    return [(e.clientX - r.left) * CANVAS / r.width, (e.clientY - r.top) * CANVAS / r.height];
+  }
+  canvas.addEventListener("wheel", (e) => {
+    if (!g.god) return;
+    e.preventDefault();
+    const [px, py] = canvasPos(e), [ox, oy] = origin();
+    const cx = ox + px / g.zoom, cy = oy + py / g.zoom;
+    const nz = Math.min(Math.max(g.zoom * (e.deltaY < 0 ? 1.25 : 0.8), (CANVAS / W) * 0.5), 40);
+    g.cam = [cx - px / nz + CANVAS / (2 * nz), cy - py / nz + CANVAS / (2 * nz)];
+    g.zoom = nz;
+  }, { passive: false });
+  let drag = null;
+  canvas.addEventListener("pointerdown", (e) => { canvas.focus(); if (g.god) { drag = canvasPos(e); canvas.setPointerCapture(e.pointerId); } });
+  canvas.addEventListener("pointermove", (e) => {
+    const p = canvasPos(e);
+    const [ox, oy] = origin(), z = zoomVal();
+    g.hover = [Math.floor(ox + p[0] / z), Math.floor(oy + p[1] / z)];
+    if (drag) { g.cam[0] -= (p[0] - drag[0]) / z; g.cam[1] -= (p[1] - drag[1]) / z; drag = p; }
+  });
+  canvas.addEventListener("pointerup", () => { drag = null; });
+  canvas.addEventListener("pointerleave", () => { g.hover = null; });
+
+  // ---- save / load (one slot in this browser) --------------------------------------------
+  const b64 = (a) => { let s = ""; const u = new Uint8Array(a.buffer); for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s); };
+  const unb64 = (s, T) => { const bin = atob(s), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new T(u.buffer); };
+  function serialize(s) {
+    return JSON.stringify({ ...s, terrain: b64(s.terrain), veg: b64(s.veg), fire: b64(s.fire), ash: b64(s.ash), wet: b64(s.wet),
+      seed: String(s.seed), stream: String(s.stream), gameSeed: g.seed });
+  }
+  function deserialize(text) {
+    const o = JSON.parse(text);
+    return { ...o, terrain: unb64(o.terrain, Uint8Array), veg: unb64(o.veg, Uint8Array), fire: unb64(o.fire, Uint8Array),
+      ash: unb64(o.ash, Uint16Array), wet: unb64(o.wet, Uint8Array), seed: BigInt(o.seed), stream: BigInt(o.stream) };
+  }
+  function save() {
+    try { localStorage.setItem("wildfire-save", serialize(g.state)); toast(`Saved step ${g.state.t}`); }
+    catch { toast("Could not save: this browser blocks site storage."); }
+  }
+  function load() {
+    let text = null;
+    try { text = localStorage.getItem("wildfire-save"); } catch { /* storage blocked */ }
+    if (!text) { toast("No save yet. Press F5 or Save first."); return; }
+    const s = deserialize(text);
+    g.seed = JSON.parse(text).gameSeed; $("seed").value = g.seed;
+    setState(s); toast(`Loaded step ${s.t}`);
+  }
+
+  // ---- fork preview: 16 futures x 100 steps in parallel workers ---------------------------
+  const WORKER = `
+self.onmessage = (e) => {
+  const { state, cfg, streams, steps } = e.data;
+  const n = state.H * state.W, counts = new Uint8Array(n), b = new Uint8Array(n);
+  for (const st of streams) {
+    let s = { ...state, stream: st };
+    for (let i = 0; i < n; i++) b[i] = s.fire[i] > 0 ? 1 : 0;
+    for (let k = 0; k < steps; k++) { s = WF.step(s, 0, cfg); for (let i = 0; i < n; i++) if (s.fire[i] > 0) b[i] = 1; }
+    for (let i = 0; i < n; i++) counts[i] += b[i];
+  }
+  self.postMessage(counts);
+};`;
+  let workerURL = null;
+  async function runFutures(state, streams, steps) {
+    if (!workerURL) {
+      const src = await (await fetch("wildfire.js")).text();
+      workerURL = URL.createObjectURL(new Blob([src, WORKER], { type: "text/javascript" }));
+    }
+    const nw = Math.min(4, navigator.hardwareConcurrency || 2);
+    const parts = Array.from({ length: nw }, (_, i) => streams.filter((_, j) => j % nw === i));
+    const results = await Promise.all(parts.map((ss) => new Promise((ok, fail) => {
+      const w = new Worker(workerURL);
+      w.onmessage = (e) => { ok(e.data); w.terminate(); };
+      w.onerror = (e) => { fail(e); w.terminate(); };
+      w.postMessage({ state, cfg, streams: ss, steps });
+    })));
+    const counts = new Uint8Array(N);
+    for (const r of results) for (let i = 0; i < N; i++) counts[i] += r[i];
+    return counts;
+  }
+  async function runFuturesHere(state, streams, steps) { // fallback without workers
+    const counts = new Uint8Array(N), b = new Uint8Array(N);
+    for (const [j, st] of streams.entries()) {
+      let s = { ...state, stream: st };
+      for (let i = 0; i < N; i++) b[i] = s.fire[i] > 0 ? 1 : 0;
+      for (let k = 0; k < steps; k++) { s = WF.step(s, 0, cfg); for (let i = 0; i < N; i++) if (s.fire[i] > 0) b[i] = 1; }
+      for (let i = 0; i < N; i++) counts[i] += b[i];
+      toast(`Running futures ${j + 1} / ${streams.length}`, 0);
+      await new Promise((r) => setTimeout(r));
+    }
+    return counts;
+  }
+  async function forkPreview() {
+    if (g.forking) return;
+    if (g.heat) { g.heat = null; syncButtons(); return; }
+    g.forking = true;
+    const state = g.state, streams = WF.forkStreams(state, 16), t0 = performance.now();
+    toast("Running 16 futures × 100 steps…", 0);
+    let counts;
+    try { counts = await runFutures(state, streams, 100); }
+    catch { counts = await runFuturesHere(state, streams, 100); }
+    g.heat = new Float32Array(N);
+    for (let i = 0; i < N; i++) g.heat[i] = counts[i] / 16;
+    g.god = true; g.forking = false; syncButtons();
+    toast(`Futures from step ${state.t}: magenta = burns in more futures (${((performance.now() - t0) / 1000).toFixed(1)} s)`, 5000);
+  }
+
+  // ---- drawing ---------------------------------------------------------------------------
+  const col = [0, 0, 0];
+  const FOG = WF.PAL.fog;
+  function draw() {
+    const s = g.state, z = zoomVal(), [ox, oy] = origin();
+    const x0 = Math.floor(ox), y0 = Math.floor(oy);
+    const w = Math.ceil(CANVAS / z) + 2, h = Math.ceil(CANVAS / z) + 2;
+    if (off.width !== w || off.height !== h) { off.width = w; off.height = h; }
+    const img = octx.createImageData(w, h), d = img.data;
+    const L = WF.light(s.t, cfg.day_length), fk = WF.flickerKey(s);
+    const mem = new Uint8Array(6);
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const y = y0 + j, x = x0 + i, p = (j * w + i) * 4;
+      const inWin = Math.abs(y - s.ay) <= R && Math.abs(x - s.ax) <= R;
+      if (g.god || inWin) {
+        WF.cellObs(s, y, x, cfg, obs);
+        WF.color(obs, L, obs[2] ? WF.flickerAt(fk, y, x) : null, col);
+        if (g.god && g.heat && y >= 0 && y < H && x >= 0 && x < W) {
+          const q = 0.8 * g.heat[y * W + x];
+          col[0] = col[0] * (1 - q) + 255 * q; col[1] = col[1] * (1 - q); col[2] = col[2] * (1 - q) + 255 * q;
+        }
+      } else if (g.overlay && y >= 0 && y < H && x >= 0 && x < W && g.seen[y * W + x]) {
+        for (let k = 0; k < 6; k++) mem[k] = g.memory[(y * W + x) * 6 + k];
+        WF.color(mem, 1.0, null, col);
+        const gray = (col[0] + col[1] + col[2]) / 3;
+        for (let k = 0; k < 3; k++) col[k] = 0.55 * (0.35 * col[k] + 0.65 * gray);
+      } else { col[0] = FOG[0]; col[1] = FOG[1]; col[2] = FOG[2]; }
+      d[p] = col[0]; d[p + 1] = col[1]; d[p + 2] = col[2]; d[p + 3] = 255;
+    }
+    octx.putImageData(img, 0, 0);
+    ctx.fillStyle = `rgb(${FOG})`; ctx.fillRect(0, 0, CANVAS, CANVAS);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(off, (x0 - ox) * z, (y0 - oy) * z, w * z, h * z);
+
+    if (g.god) {
+      ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineWidth = 1;
+      ctx.strokeRect((s.ax - R - ox) * z, (s.ay - R - oy) * z, cfg.window * z, cfg.window * z);
+    }
+    const ax = (s.ax + 0.5 - ox) * z, ay = (s.ay + 0.5 - oy) * z, r = Math.max(z * 0.45, 3);
+    ctx.fillStyle = "#fff"; ctx.strokeStyle = "#141414"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(ax, ay, r, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ax, ay);
+    ctx.lineTo(ax + WF.DX[s.facing] * r * 1.7, ay + WF.DY[s.facing] * r * 1.7); ctx.stroke();
+
+    if (g.minimap) drawMinimap();
+  }
+
+  let miniFrame = 0;
+  function drawMinimap() {
+    const s = g.state, size = 168, m = 10, x = CANVAS - size - m, y = CANVAS - size - m;
+    if (miniFrame++ % 6 === 0) {
+      const img = mctx.createImageData(W, H), d = img.data, L = WF.light(s.t, cfg.day_length);
+      for (let yy = 0; yy < H; yy++) for (let xx = 0; xx < W; xx++) {
+        WF.cellObs(s, yy, xx, cfg, obs); WF.color(obs, L, null, col);
+        const p = (yy * W + xx) * 4; d[p] = col[0]; d[p + 1] = col[1]; d[p + 2] = col[2]; d[p + 3] = 255;
+      }
+      mctx.putImageData(img, 0, 0);
+    }
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(mini, x, y, size, size);
+    ctx.strokeStyle = "rgba(230,230,230,0.9)"; ctx.lineWidth = 1; ctx.strokeRect(x - 0.5, y - 0.5, size + 1, size + 1);
+    const k = size / W;
+    ctx.strokeStyle = "#fff"; ctx.strokeRect(x + (s.ax - R) * k, y + (s.ay - R) * k, Math.max(cfg.window * k, 2), Math.max(cfg.window * k, 2));
+  }
+
+  function hud() {
+    const s = g.state, D = cfg.day_length;
+    const minutes = Math.round(((s.t % D) / D) * 24 * 60);
+    $("time").textContent = `${String(Math.floor(minutes / 60) % 24).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+    $("day").textContent = `Day ${Math.floor(s.t / D) + 1}`;
+    const L = WF.light(s.t, D);
+    $("light").style.width = `${(L * 100).toFixed(1)}%`;
+    $("lightv").textContent = L.toFixed(2);
+    let fires = 0, ground = 0, veg = 0, ash = 0;
+    for (let i = 0; i < N; i++) {
+      if (s.fire[i] > 0) fires++;
+      if (s.terrain[i] === WF.GROUND) { ground++; if (s.veg[i] > 0) veg++; if (s.ash[i] > 0) ash++; }
+    }
+    $("fires").textContent = fires;
+    $("burned").textContent = `${(100 * ash / ground).toFixed(1)} %`;
+    $("veg").textContent = `${(100 * veg / ground).toFixed(1)} %`;
+    $("step").textContent = s.t;
+    $("speed").textContent = g.paused ? "paused" : `${SPEEDS[g.speed]} /s`;
+    $("tankv").textContent = cfg.infinite_water ? "∞" : `${s.tank} / ${cfg.tank}`;
+    $("tank").style.width = `${(100 * s.tank / cfg.tank).toFixed(0)}%`;
+    if (g.inspector) {
+      const c = g.hover;
+      let txt = "Hover a cell on the map.";
+      if (c) {
+        const [x, y] = c;
+        if (x < 0 || x >= W || y < 0 || y >= H) txt = `x=${x} y=${y}\noutside the world (rock)`;
+        else {
+          const i = y * W + x; WF.cellObs(s, y, x, cfg, obs);
+          txt = `x=${x} y=${y}  ${["ground", "water", "rock"][s.terrain[i]]}\nveg      ${s.veg[i]}\nfire     ${s.fire[i]}   (bucket ${obs[3]})\nash_age  ${s.ash[i]}   (bucket ${obs[5]})\nwet      ${s.wet[i]}   (bucket ${obs[4]})\nseen     ${g.seen[i] ? "yes" : "never"}`
+            + (g.heat ? `\nburns in ${Math.round(g.heat[i] * 16)} / 16 futures` : "");
+        }
+      }
+      $("inspector").textContent = txt;
+    }
+  }
+
+  // ---- loop ------------------------------------------------------------------------------
+  function frame(now) {
+    const dt = g.last ? (now - g.last) / 1000 : 0; g.last = now;
+    if (!g.paused && !g.forking) {
+      const period = 1 / SPEEDS[g.speed];
+      g.acc = Math.min(g.acc + dt, 5 * period);
+      while (g.acc >= period) { g.acc -= period; simStep(); }
+    } else g.acc = 0;
+    draw(); hud();
+    requestAnimationFrame(frame);
+  }
+
+  // keep the running world across page updates
+  const hot = window.claude && window.claude.hot;
+  if (hot && hot.snapshot) hot.snapshot(() => ({ save: serialize(g.state) }));
+  const start = (data) => {
+    if (data && data.save) { const s = deserialize(data.save); g.seed = JSON.parse(data.save).gameSeed; $("seed").value = g.seed; setState(s); }
+    else reset(0);
+    syncButtons();
+    requestAnimationFrame(frame);
+  };
+  if (hot && hot.ready) hot.ready(start); else start(hot && hot.data ? hot.data : {});
+})();
+</script>

@@ -51,22 +51,21 @@ def tile_info(tracker: TileTracker, s: WorldState, cfg: Config) -> dict:
     }
 
 
-def _spaces(cfg: Config):
+def _spaces(cfg: Config, rgb: bool):
+    """Per-world Gymnasium spaces (None if gymnasium is not installed)."""
     try:
         from gymnasium import spaces
     except ImportError:  # gymnasium is an optional extra
         return None, None
-    V = cfg.window
-    obs = spaces.Dict(
-        {
-            "grid": spaces.Box(0, 255, (V, V, len(CHANNELS)), np.uint8),
-            "light": spaces.Box(0.0, 1.0, (), np.float64),
-            "agent": spaces.Dict(
-                {"facing": spaces.Discrete(4), "tank": spaces.Discrete(cfg.tank + 1)}
-            ),
-        }
-    )
-    return spaces.Discrete(A.N_ACTIONS), obs
+    V, px = cfg.window, cfg.window * cfg.pixels_per_cell
+    obs = {
+        "grid": spaces.Box(0, 255, (V, V, len(CHANNELS)), np.uint8),
+        "light": spaces.Box(0.0, 1.0, (), np.float64),
+        "agent": spaces.Dict({"facing": spaces.Discrete(4), "tank": spaces.Discrete(cfg.tank + 1)}),
+    }
+    if rgb:
+        obs["rgb"] = spaces.Box(0, 255, (px, px, 3), np.uint8)
+    return spaces.Discrete(A.N_ACTIONS), spaces.Dict(obs)
 
 
 class WildfireEnv:
@@ -76,7 +75,7 @@ class WildfireEnv:
         self.cfg = cfg
         self.reward_fn = reward_fn
         self.rgb = rgb
-        self.action_space, self.observation_space = _spaces(cfg)
+        self.action_space, self.observation_space = _spaces(cfg, rgb)
         self.state: WorldState | None = None
         self.tiles: TileTracker | None = None
 
@@ -118,7 +117,7 @@ class VecWildfire:
 
     def __init__(self, cfg: Config, n: int, reward_fn: RewardFn | None = None, rgb: bool = False):
         self.cfg, self.n, self.reward_fn, self.rgb = cfg, n, reward_fn, rgb
-        self.action_space, self.observation_space = _spaces(cfg)
+        self.action_space, self.observation_space = _spaces(cfg, rgb)
         self.state: WorldState | None = None
 
     def reset(self, seeds=None, streams=None):
