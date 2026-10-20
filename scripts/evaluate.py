@@ -104,7 +104,8 @@ def main(argv=None) -> None:
 
     mc_summary = []
     for j, tile in enumerate(tiles):
-        row = {"tile": list(tile), "last_seen": dict(zip(TILE_STATS, last_seen[j].round(4).tolist()))}
+        stats_at_tau = dict(zip(TILE_STATS, last_seen[j].round(4).tolist()))
+        row = {"tile": list(tile), "last_seen": stats_at_tau}
         for dt in args.dts:
             x = mc[dt][:, j, :]
             row[f"dt={dt}"] = {
