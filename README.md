@@ -9,7 +9,25 @@ environments. The full specification is in [SPEC.md](SPEC.md).
 uv sync
 uv run pytest
 uv run python -m wildfire.cli run --config configs/default.yaml --steps 2000
+uv run python -m wildfire.app.play --seed 0     # play
 ```
+
+## Game controls
+
+| key | action |
+|---|---|
+| arrows / WASD | move (repeats while held) |
+| F / Space | ignite / water the cell in front |
+| Tab | agent view / god view (mouse wheel zooms, right or middle drag pans) |
+| G | last-seen overlay (agent view) |
+| M / I | minimap / cell inspector (hover a cell) |
+| P / N | pause / single step |
+| + / − | simulation speed (2, 5, 10, 20, 40 steps/s) |
+| R / Shift+R | reset with seed + 1 / the same seed |
+| F5 / F9 | save / load `saves/quicksave.npz` |
+| F2 | start or stop recording to `recordings/` |
+| K | fork preview: burn probability over 16 futures × 100 steps (god view) |
+| Esc | quit |
 
 ## Layout
 
@@ -21,6 +39,9 @@ uv run python -m wildfire.cli run --config configs/default.yaml --steps 2000
 | `state.py` | `WorldState` (layers `(H, W)` or `(n, H, W)`), `stack`, `equal`, save/load |
 | `actions.py` | action ids, `apply_action` (step 1 of the update) |
 | `dynamics.py` | pure `step(state, action, cfg)`, `light(t, D)`, spread-weight hook |
+| `observe.py` | window crop, observation buckets, `observe`, `privileged` |
+| `render/palette.py`, `render/topdown.py` | palette; pure NumPy `render(state, window, cfg)` |
+| `app/play.py` | pygame-ce frontend |
 | `cli.py` | `run` (headless statistics) |
 
 ## Performance
@@ -59,3 +80,12 @@ Choices where the spec is ambiguous. Each keeps determinism and the observable/p
   the action, every step. Initial facing is south.
 - **Batches.** The same `step` handles `(H, W)` and `(n, H, W)`; scalars are int64 arrays with
   the batch shape. Terrain is replicated per world.
+- **Renderer uses only observable channels.** Colours come from `observe.grid` (terrain, veg,
+  burning, fire/wet/ash buckets), so `obs["rgb"]` carries no more state than `obs["grid"]`
+  (apart from the `FLICKER` noise). Ash shades and the wetness tint are therefore per bucket.
+- **Buckets.** fire: `ceil(3 * fire / FIRE_MAX)` with `FIRE_MAX = BURN_BASE + BURN_PER_VEG *
+  V_MAX`; wet: 1–85, 86–170, 171–255; ash: thirds of `REGROW_DELAY`, bucket 3 from
+  `2/3 REGROW_DELAY` on.
+- **Game.** The last-seen memory stores the observable grid of every cell when it was last in
+  the window. The minimap always shows the live world (it is a demo aid, not an observation).
+  If the simulation falls behind, steps are dropped (at most 5 per frame) rather than queued.
