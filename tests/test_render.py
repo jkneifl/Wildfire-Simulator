@@ -46,15 +46,16 @@ def test_outside_world_is_rock_and_grid(small):
 
 
 def test_palette_matches_style_table():
+    # style sheet structure with brightened mix fractions (README, Visual style)
     hexes = {
-        "BARE": "#1E2926", "ROCK": "#505A56", "WATER": "#1D4A63", "WATER_VARIANT": "#22556F",
-        "EMBER": "#7C4F29", "ASH_FRESH": "#303A37",
+        "BARE": "#293430", "ROCK": "#6B736F", "WATER": "#2A6688", "WATER_VARIANT": "#307596",
+        "EMBER": "#965B2D", "ASH_FRESH": "#434D49",
     }  # fmt: skip
     for name, h in hexes.items():
         assert getattr(P, name) == P.hex_rgb(h), name
-    assert P.ASH[1:] == (P.hex_rgb("#303A37"), P.hex_rgb("#27322F"), P.hex_rgb("#1E2926"))
-    veg = ["#1C3933", "#21453E", "#27534B", "#2C6057"]
-    dark = ["#18302B", "#1C3933", "#20433C", "#244C45"]
+    assert P.ASH[1:] == (P.hex_rgb("#434D49"), P.hex_rgb("#36413D"), P.hex_rgb("#293430"))
+    veg = ["#254E47", "#2E635A", "#377A6F", "#419184"]
+    dark = ["#1F3F3A", "#254F47", "#2C5F56", "#337065"]
     assert list(P.VEG[1:]) == [P.hex_rgb(h) for h in veg]
     assert list(P.VEG_VARIANT[1:]) == [P.hex_rgb(h) for h in dark]
     lo = P.mix(P.FIRE, P.INK, P.FLAME_BASE - P.FLAME_AMP)

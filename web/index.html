@@ -12,12 +12,12 @@
     --ink: #E9EFE9;      /* agent, text, outlines */
     --accent: #4FB3A3;   /* HUD highlights */
     --bg: var(--ground);
-    --panel: #1E2926;    /* mix(ground, ink, 0.07), bare ground */
-    --line: #303A37;     /* mix(ground, ink, 0.15), fresh ash */
-    --raised: #27322F;   /* between bare ground and fresh ash, older ash */
+    --panel: #293430;    /* mix(ground, ink, 0.12), bare ground */
+    --line: #434D49;     /* mix(ground, ink, 0.24), fresh ash */
+    --raised: #36413D;   /* between bare ground and fresh ash, older ash */
     --muted: #929A95;    /* mix(ground, ink, 0.60) */
-    --accent-dim: #21453E; /* mix(ground, accent, 0.28) */
-    --water: #22556F;
+    --accent-dim: #2E635A; /* mix(ground, accent, 0.48), veg stage 2 */
+    --water: #307596;
     --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
     --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
     --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -144,14 +144,14 @@
       </div>
       <div id="inspector" class="inspector" hidden></div>
       <div class="legend" aria-label="Map legend">
-        <span><i style="background:#1C3933"></i>Young growth</span>
-        <span><i style="background:#2C6057"></i>Mature forest</span>
+        <span><i style="background:#254E47"></i>Young growth</span>
+        <span><i style="background:#419184"></i>Mature forest</span>
         <span><i style="background:#E8833A"></i>Flames</span>
-        <span><i style="background:#7C4F29"></i>Embers</span>
-        <span><i style="background:#303A37"></i>Fresh ash</span>
-        <span><i style="background:#1E2926;outline:1px solid #303A37"></i>Bare ground</span>
-        <span><i style="background:#1D4A63"></i>Water</span>
-        <span><i style="background:#505A56"></i>Rock</span>
+        <span><i style="background:#965B2D"></i>Embers</span>
+        <span><i style="background:#434D49"></i>Fresh ash</span>
+        <span><i style="background:#293430;outline:1px solid #434D49"></i>Bare ground</span>
+        <span><i style="background:#2A6688"></i>Water</span>
+        <span><i style="background:#6B736F"></i>Rock</span>
       </div>
       <p class="keys"><kbd>WASD</kbd>/<kbd>↑↓←→</kbd> move · <kbd>F</kbd> ignite · <kbd>Space</kbd> water the 3 × 3 cells in front.
         Standing next to water refills the tank. In god view, scroll to zoom and drag to pan.</p>

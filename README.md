@@ -244,6 +244,19 @@ Choices where the spec is ambiguous. Each keeps determinism and the observable/p
     the fork preview is `mix(c, INK, 0.75 p)`, and the HUD uses `INK`, `ACCENT` for
     highlights, `FIRE` for warnings and `mix(GROUND, INK, 0.6)` for secondary text.
   - Water and wetness colours are implemented as proposed and still need confirmation.
+  - **Brightened after review** ("too dark"): the cell mix fractions are raised about 1.7×.
+
+    | colour | style sheet | now |
+    |---|---|---|
+    | bare ground | 0.07 | 0.12 |
+    | rock | 0.30 | 0.42 |
+    | fresh ash | 0.15 | 0.24 |
+    | ember | 0.50 | 0.62 |
+    | vegetation, stages 1–4 | 0.20 / 0.28 / 0.37 / 0.46 | 0.34 / 0.48 / 0.63 / 0.78 |
+    | water / variant | `#1D4A63` / `#22556F` | `#2A6688` / `#307596` |
+
+    The base colours, GROUND gaps and fog, the darker variant (0.72), the flame and the wet
+    tint are unchanged.
 - **Buckets.** fire: `ceil(3 * fire / FIRE_MAX)` with `FIRE_MAX = BURN_BASE + BURN_PER_VEG *
   V_MAX`; wet: 1–85, 86–170, 171–255; ash: thirds of `REGROW_DELAY`, bucket 3 from
   `2/3 REGROW_DELAY` on.

@@ -24,18 +24,19 @@ INK = hex_rgb("#E9EFE9")  # agent, text, outlines
 ACCENT = hex_rgb("#4FB3A3")  # HUD highlights; reserved for later overlays
 
 # cells
-BARE = mix(GROUND, INK, 0.07)
-ROCK = mix(GROUND, INK, 0.30)
-WATER = hex_rgb("#1D4A63")  # proposed
-WATER_VARIANT = hex_rgb("#22556F")  # proposed, half of the water cells
-EMBER = mix(GROUND, FIRE, 0.50)  # last burning bucket
-ASH_FRESH = mix(GROUND, INK, 0.15)
+# Mix fractions are about 1.7x the style sheet's (0.07 / 0.30 / 0.15 / 0.50, veg 0.20-0.46),
+# which read too dark in the game; the structure (base colours, mixes, variants) is unchanged.
+BARE = mix(GROUND, INK, 0.12)
+ROCK = mix(GROUND, INK, 0.42)
+WATER = hex_rgb("#2A6688")  # proposed (style sheet: #1D4A63)
+WATER_VARIANT = hex_rgb("#307596")  # proposed, half of the water cells (style sheet: #22556F)
+EMBER = mix(GROUND, FIRE, 0.62)  # last burning bucket
+ASH_FRESH = mix(GROUND, INK, 0.24)
 ASH = (BARE, ASH_FRESH, mix(ASH_FRESH, BARE, 0.5), BARE)  # by ash bucket 0..3
-VEG_F = (0.20, 0.28, 0.37, 0.46)  # by growth stage 1..4
+VEG_F = (0.34, 0.48, 0.63, 0.78)  # by growth stage 1..4
 VEG_DARK = 0.72  # darker variant (half of the cells)
 VEG = (BARE, *(mix(GROUND, ACCENT, f) for f in VEG_F))
-# mix(GROUND, VEG, 0.72) of the rounded colour: reproduces the style table exactly
-# (mix(GROUND, ACCENT, 0.72 f) differs by one unit in green at stage 4).
+# darker variant: mix(GROUND, VEG, 0.72) of the rounded colour (the style table's convention)
 VEG_VARIANT = (BARE, *(mix(GROUND, c, VEG_DARK) for c in VEG[1:]))
 
 # flame: mix(FIRE, INK, FLAME_BASE + FLAME_AMP * sin(2 pi (t / FLAME_PERIOD + u)))

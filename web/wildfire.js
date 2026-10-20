@@ -377,12 +377,12 @@ const WF = (() => {
   const hex = (h) => [1, 3, 5].map((k) => parseInt(h.slice(k, k + 2), 16));
   const mix = (a, b, f) => a.map((x, k) => Math.floor(x + f * (b[k] - x) + 0.5));
   const GROUND_C = hex("#0F1A17"), FIRE_C = hex("#E8833A"), INK_C = hex("#E9EFE9"), ACCENT_C = hex("#4FB3A3");
-  const BARE_C = mix(GROUND_C, INK_C, 0.07), ASH_FRESH = mix(GROUND_C, INK_C, 0.15);
-  const VEG_C = [BARE_C, ...[0.2, 0.28, 0.37, 0.46].map((f) => mix(GROUND_C, ACCENT_C, f))];
+  const BARE_C = mix(GROUND_C, INK_C, 0.12), ASH_FRESH = mix(GROUND_C, INK_C, 0.24);
+  const VEG_C = [BARE_C, ...[0.34, 0.48, 0.63, 0.78].map((f) => mix(GROUND_C, ACCENT_C, f))];
   const PAL = {
     ground: GROUND_C, fire: FIRE_C, ink: INK_C, accent: ACCENT_C, bare: BARE_C,
-    rock: mix(GROUND_C, INK_C, 0.3), water: hex("#1D4A63"), waterVariant: hex("#22556F"),
-    ember: mix(GROUND_C, FIRE_C, 0.5), ash: [BARE_C, ASH_FRESH, mix(ASH_FRESH, BARE_C, 0.5), BARE_C],
+    rock: mix(GROUND_C, INK_C, 0.42), water: hex("#2A6688"), waterVariant: hex("#307596"),
+    ember: mix(GROUND_C, FIRE_C, 0.62), ash: [BARE_C, ASH_FRESH, mix(ASH_FRESH, BARE_C, 0.5), BARE_C],
     veg: VEG_C, vegVariant: [BARE_C, ...VEG_C.slice(1).map((c) => mix(GROUND_C, c, 0.72))],
     wet: hex("#5FA8D3"), wetMix: 0.3, flameBase: 0.1, flameAmp: 0.1, flamePeriod: 12,
     nightMin: 0.35, gapFrac: 0.09, gapMinPx: 6, fog: GROUND_C, mix,
