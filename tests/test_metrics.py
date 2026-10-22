@@ -97,3 +97,19 @@ def test_regime_summary(small):
     }
     r = regime_summary(stats, small.replace(day_length=3))
     assert r["frac_steps_with_fire"] == 3 / 7 and r["longest_fire_free_days"] == 1.0
+
+
+def test_obs_stats_match_state_stats(small):
+    from wildfire.dynamics import run
+    from wildfire.metrics import obs_patch_stats, obs_stats, obs_tiles
+    from wildfire.observe import grid
+
+    cfg = small.replace(p_lightning=2e-3)
+    s = run(initial_state(cfg, 5), [0] * 150, cfg)
+    g = grid(s, 0, 0, 64, 64, cfg)
+    a = obs_stats(obs_tiles(g, 16), cfg).reshape(16, -1)
+    b = tile_stats(s, cfg)
+    assert np.allclose(a[:, :4], b[:, :4])  # wetness differs only by bucketing
+    odd = obs_tiles(g[:50, :40], 16)
+    assert odd.shape == (4, 3, 16, 16, 6)
+    assert np.array_equal(np.sort(obs_patch_stats(g)["vegetated"]), np.sort(patch_sizes(s.veg > 0)))

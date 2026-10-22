@@ -213,6 +213,41 @@ def mmd(x, y, bandwidth: float | None = None) -> float:
     return float(sxx + syy - 2 * kxy.mean())
 
 
+# --- statistics on observable grids (observe.grid channels) --------------------------------
+
+
+def obs_stats(g: np.ndarray, cfg: Config) -> np.ndarray:
+    """``TILE_STATS`` of observable grids ``(..., h, w, 6)`` over their ground cells.
+
+    Same quantities as :func:`tile_stats`, except that wetness is the mean wet *bucket* / 3,
+    since the exact wetness is not observable. Returns ``(..., len(TILE_STATS))``.
+    """
+    g = np.asarray(g)
+    ground = (g[..., 0] == GROUND).astype(np.float64)
+    n = np.maximum(ground.sum((-2, -1)), 1)
+    layers = (g[..., 1] > 0, g[..., 1] / cfg.v_max, g[..., 5] > 0, g[..., 2] > 0, g[..., 4] / 3)
+    return np.stack([(np.asarray(x, np.float64) * ground).sum((-2, -1)) / n for x in layers], -1)
+
+
+def obs_tiles(world: np.ndarray, T: int) -> np.ndarray:
+    """Split a world grid ``(H, W, 6)`` into tiles ``(rows, cols, T, T, 6)``; partial edge
+    tiles are padded with rock (excluded from ``obs_stats``, which counts ground cells)."""
+    h, w = world.shape[:2]
+    ph, pw = -h % T, -w % T
+    if ph or pw:
+        pad = np.zeros((h + ph, w + pw, 6), world.dtype)
+        pad[..., 0] = 2  # rock
+        pad[:h, :w] = world
+        world = pad
+    rows, cols = world.shape[0] // T, world.shape[1] // T
+    return world.reshape(rows, T, cols, T, 6).swapaxes(1, 2)
+
+
+def obs_patch_stats(world: np.ndarray) -> dict[str, np.ndarray]:
+    """Component sizes of burned (ash bucket > 0) and vegetated cells of an observable grid."""
+    return {"burned": patch_sizes(world[..., 5] > 0), "vegetated": patch_sizes(world[..., 1] > 0)}
+
+
 # --- behaviour statistics (agent trajectories, for comparing policies with human play) ----
 
 SCALAR_BEHAVIOUR = (

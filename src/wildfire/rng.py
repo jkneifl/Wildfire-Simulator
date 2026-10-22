@@ -31,6 +31,7 @@ class Purpose(IntEnum):
     FLICKER = 7
     POLICY = 8  # scripted policies only, never the simulation
     FORK = 9  # derivation of fork stream ids
+    SAMPLER = 10  # training-data samplers (datasets.py), never the simulation
 
 
 def _fmix_int(z: int) -> int:
