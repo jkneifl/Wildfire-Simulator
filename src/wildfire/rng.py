@@ -31,6 +31,7 @@ class Purpose(IntEnum):
     FLICKER = 7
     POLICY = 8  # scripted policies only, never the simulation
     FORK = 9  # derivation of fork stream ids
+    SAMPLER = 10  # training-data samplers (datasets.py), never the simulation
 
 
 def _fmix_int(z: int) -> int:
@@ -60,11 +61,12 @@ def keys(seed, stream, step, purpose) -> np.ndarray:
 
 def fmix(z: np.ndarray) -> np.ndarray:
     """Vectorised fmix64 on uint64 arrays (returns a new array)."""
-    z = z ^ (z >> np.uint64(33))
-    z *= np.uint64(_C1)
-    z ^= z >> np.uint64(33)
-    z *= np.uint64(_C2)
-    z ^= z >> np.uint64(33)
+    with np.errstate(over="ignore"):  # wraparound mod 2**64 is intended (scalars warn)
+        z = z ^ (z >> np.uint64(33))
+        z *= np.uint64(_C1)
+        z ^= z >> np.uint64(33)
+        z *= np.uint64(_C2)
+        z ^= z >> np.uint64(33)
     return z
 
 

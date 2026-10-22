@@ -1,0 +1,18 @@
+{
+  "config": "configs/medium.yaml",
+  "machine": "macOS-26.6.2-arm64-arm-64bit-Mach-O arm",
+  "git": "e9685626a1156cb40684345e8cf0cbe7f9da9d74",
+  "seed": 0,
+  "step_per_s_512": 169.39595150126448,
+  "world_snapshot_bytes": {
+    "min": 120889,
+    "mean": 124449.5,
+    "max": 130378
+  },
+  "world_snapshot_raw_bytes": 1572864,
+  "world_grid_ms": 2.046162501210347,
+  "near_r32_chunk256_bytes": 543359,
+  "near_r64_chunk256_bytes": 2034871,
+  "fork32_world_steps_per_s": 180.03635775348155,
+  "fork32x256_s": 45.50192029110622
+}

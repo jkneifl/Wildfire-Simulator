@@ -1,0 +1,54 @@
+{
+  "config": "configs/medium.yaml",
+  "overrides": {},
+  "world": "512x512",
+  "days": 30,
+  "burn_in_days": 5,
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "per_seed": {
+    "0": {
+      "frac_steps_with_fire": 1.0,
+      "longest_fire_free_days": 0.0,
+      "mean_active_fires": 1782.1915,
+      "veg_mean": 0.5866485887021029,
+      "veg_min": 0.4547696869337541,
+      "veg_max": 0.7170742914611203,
+      "burned_mean": 0.41276266945834017,
+      "burned_max": 0.5440208768629219
+    },
+    "1": {
+      "frac_steps_with_fire": 1.0,
+      "longest_fire_free_days": 0.0,
+      "mean_active_fires": 1814.6486666666667,
+      "veg_mean": 0.5847848171685032,
+      "veg_min": 0.33769279453456214,
+      "veg_max": 0.770805337124923,
+      "burned_mean": 0.4144917564712784,
+      "burned_max": 0.6606729493770753
+    },
+    "2": {
+      "frac_steps_with_fire": 1.0,
+      "longest_fire_free_days": 0.0,
+      "mean_active_fires": 1866.0355,
+      "veg_mean": 0.5739760778720858,
+      "veg_min": 0.4024474827254363,
+      "veg_max": 0.7674804712899785,
+      "burned_mean": 0.4255991109126691,
+      "burned_max": 0.5975048334099166
+    }
+  },
+  "mean": {
+    "frac_steps_with_fire": 1.0,
+    "longest_fire_free_days": 0.0,
+    "mean_active_fires": 1820.9585555555557,
+    "veg_mean": 0.5818031612475639,
+    "veg_min": 0.39830332139791746,
+    "veg_max": 0.7517866999586739,
+    "burned_mean": 0.41761784561409593,
+    "burned_max": 0.6007328865499711
+  }
+}
