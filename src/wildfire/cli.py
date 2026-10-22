@@ -33,19 +33,30 @@ def generate_episode(job: dict) -> str:
     from .env import WildfireEnv
     from .policies import make_policy
     from .record import Products, Recorder
+    from .tiles import TileTracker
 
     cfg = Config.from_dict(job["config"])
     env = WildfireEnv(cfg, rgb=job["rgb"])
     obs, info = env.reset(seed=job["seed"])
+    burn_in = job.get("burn_in", 0)
+    if burn_in:  # let the world reach its regime; the agent stands still and starts fresh
+        for _ in range(burn_in):
+            env.step(0)
+        env.tiles = TileTracker(env.state.shape, cfg.tile)
+        obs, info = env.observe(), env._info()
     policy = make_policy(job["policy"], cfg, seed=job["seed"], params=job["params"])
     rec = Recorder(
-        job["out"], cfg, env.state, job["policy"], True, job["rgb"], Products(**job["products"])
-    )
+        job["out"], cfg, env.state, job["policy"], not burn_in, job["rgb"],
+        Products(**job["products"]),
+    )  # fmt: skip
     for _ in range(job["steps"]):
         a = policy.act(obs, info)
         obs, _, _, _, info = env.step(a)
         rec.add(a, env.state, obs)
-    rec.close(policy_seed=job["seed"], policy_params=policy.param_values(), policy_log=policy.log)
+    rec.close(
+        policy_seed=job["seed"], policy_params=policy.param_values(), policy_log=policy.log,
+        burn_in=burn_in,
+    )  # fmt: skip
     return str(job["out"])
 
 
@@ -121,7 +132,7 @@ def cmd_generate(args) -> None:
             {
                 "config": cfg.to_dict(), "policy": name, "params": params.get(name, {}),
                 "seed": seed, "steps": args.steps, "out": out / f"ep_{i:04d}",
-                "rgb": args.rgb, "products": products,
+                "rgb": args.rgb, "products": products, "burn_in": args.burn_in,
             }
         )  # fmt: skip
     out.mkdir(parents=True, exist_ok=True)
@@ -217,6 +228,7 @@ def main(argv=None) -> None:
     g.add_argument("--seed", type=int, default=0, help="seed of episode 0 (episode i: seed + i)")
     g.add_argument("--workers", type=int, default=None)
     g.add_argument("--rgb", action="store_true", help="also store obs_rgb.npy")
+    g.add_argument("--burn-in", type=int, default=0, help="no-op steps before recording starts")
     add_products(g)
     g.set_defaults(func=cmd_generate)
 

@@ -116,3 +116,16 @@ def test_rerecord_adds_products_to_a_plain_episode(small, tmp_path):
     assert ds.world(0, 99).shape == (small.height, small.width, 6)
     assert ds[0]["meta"]["rerecorded_from"] == str(plain)
     assert np.array_equal(ds[0]["actions"], EpisodeDataset(plain)[0]["actions"])
+
+
+def test_generate_with_burn_in_replays_from_snapshot(tmp_path):
+    from wildfire.cli import main as cli_main
+
+    out = tmp_path / "b"
+    cli_main(["generate", "--config", "configs/small.yaml", "--policy", "player",
+              "--products", "all", "--burn-in", "60", "--episodes", "1", "--steps", "40",
+              "--workers", "1", "--out", str(out)])  # fmt: skip
+    meta = EpisodeDataset(out)[0]["meta"]
+    assert not meta["from_reset"] and meta["burn_in"] == 60
+    assert meta["start_step"] == 60 + 60  # small config starts at 06:00 = step 60
+    assert replay(out / "ep_0000")["steps"] == 40
