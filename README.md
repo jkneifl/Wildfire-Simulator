@@ -200,6 +200,94 @@ numbers are in `docs/evaluation/evaluation.json`. Plots:
 
 ![retention](docs/evaluation/retention.png)
 
+## Data pipeline for out-of-sight world models
+
+Training and evaluation data for a world model whose memory of unobserved places must keep
+evolving. The pipeline stores everything at full cell resolution and derives coarser levels,
+tiles, revisits and training pairs at load time.
+
+**Recording products** (`Recorder(products=Products(...))`, `generate --products all`). These
+are written incrementally and checked by `replay` with array equality.
+
+| file | content |
+|---|---|
+| `near/chunk_XXXX.npz` | observable crop `(2r+1, 2r+1, 6)` around the agent, every step (r = 32) |
+| `world/step_XXXXXX.npz` | full-world observable grid `(H, W, 6)` every `world_every` steps (1) |
+| `globals.npy` | per step `t`, day phase, light (observable) + global stats (privileged probes) |
+| `events.npz` | every new ignition `(step, y, x, cause, nbrs)`: cause agent / lightning / spread |
+
+```bash
+# 512 x 512 worlds, 1200-step burn-in (5 days), tuned player + controlled absences
+uv run python -m wildfire.cli generate --config configs/medium.yaml --burn-in 1200 \
+    --policy-mix player:0.8,explore_return_act:0.2 --products all \
+    --episodes 96 --steps 4000 --seed 1000 --out data/train
+uv run python -m wildfire.cli rerecord recordings/ep_* --products all --out data/human
+uv run python -m wildfire.cli forks data/test/ep_* --n 32 --out data/test_forks
+```
+
+**Samplers** (`wildfire.datasets`, NumPy only). Each `sample(i)` returns
+`{input, target, probe, meta}` and is a pure function of the sampler seed and `i`.
+- `DynamicsSampler`: levels around the agent at `t` plus actions and clock → the same regions
+  at `t + dt`.
+- `ReentrySampler`: tile at `τ`, its ring at `t` (with the tile itself masked), clocks and `Δt`
+  → tile at `t`. Gaps come from real absences (`source="revisits"`) or are synthetic and
+  log-uniform.
+- `RefinementSampler`: details removed by coarsening at `τ` plus the coarse tile at `t` →
+  details at `t`.
+- `TripleSampler`: `τ`, `τ + Δ`, `τ + 2Δ`, for self-consistency.
+
+Level-of-detail utilities are in `wildfire.levels`: one-hot categories, block-mean
+restriction `R`, piecewise-constant prolongation `P` with `R P = I`, details with `R d = 0`,
+and clipmaps snapped to each level's grid.
+
+**Reference sets** (`wildfire.forksets`, `forks` command). `n` futures of the full state at `τ`
+are rebuilt by replay and run with the recorded actions. They store the observable state of
+the selected tiles at nested checkpoints (8 … 2048 steps). Baselines: frozen tile,
+phase-matched resampling, and the split-half noise floor.
+
+**Agent behaviour.** The `player` policy is intent-based: explore, revisit, ignite and watch,
+fight, refill, idle. `scripts/tune_player.py` fits its parameters to recorded human sessions
+via `metrics.behaviour_stats` and reports each statistic against the human split-half
+noise floor. To record a session, run
+`uv run python -m wildfire.app.play --config configs/medium.yaml --seed 101`, press F2, play
+normally for at least 2000 steps, and press F2 again. Use a different seed for each session.
+
+**Pilot** (`scripts/pilot_pipeline.py`; results in `docs/pilot/pipeline.json` and
+`docs/pilot/pipeline.png`). Setup: git `3cf109e`, `configs/medium.yaml` (512²), 4 episodes ×
+500 steps after a 1200-step burn-in, seeds 9000–9003, policies `player` / `explore_return_act`,
+M-series Mac. The calibration regime holds at 512² (`docs/calibration/medium`, seeds 0–2,
+30 days): fire in 100 % of steps, vegetation 0.34–0.77.
+
+| measure | value |
+|---|---|
+| `step` alone | 169 steps/s |
+| generate, all products | 33.1 s for 4 episodes on 4 workers; each worker ran 1200 burn-in + 500 recorded steps |
+| disk per 500-step episode, all products | 70.7 MB |
+| replay with all products checked | 500 steps in 5.8 s, all equal |
+| sample time | dynamics (n = 32, L = 3) 17.5 ms; re-entry 3.0–3.9 ms; refinement 4.0 ms; triples 4.5 ms |
+| completed real absences (window, tile 16) | 167 in 2000 steps |
+| one fork set (32 futures × 256 steps, 7 tiles) | 45.0 s |
+
+**Fork set and retention** (`ep_0000`, `τ` = episode step 3, 7 tiles). Energy distance to the
+reference, mean over tiles:
+
+| `Δt` | 8 | 16 | 32 | 64 | 128 | 256 |
+|---|---|---|---|---|---|---|
+| frozen | 0.024 | 0.058 | 0.148 | 0.360 | 0.666 | 0.845 |
+| phase-matched resampling | 0.530 | 0.601 | 0.725 | 0.528 | 0.333 | 0.302 |
+| split-half noise floor | 0.001 | 0.003 | 0.003 | 0.004 | 0.005 | 0.006 |
+
+The frozen tile wins up to `Δt` = 64 and resampling wins from 128 on; neither reaches the
+noise floor at any `Δt`.
+
+The correlation of tile vegetated fraction between `τ` and `τ + Δt` is 0.88 at 50 steps, 0.22
+at 200, 0.04 at 250 and −0.41 at 500. This comes from one pilot of 4 short episodes, not a
+dataset-level estimate.
+
+**Projected budget** (extrapolated from the pilot, not measured): about 0.57 GB per 4000-step
+episode, so about 88 training episodes fit in 50 GB. Time is about 3.6 minutes per episode per
+core: the burn-in at 169 steps/s takes about 7 s, leaving about 52 ms per recorded step.
+
 ## Decisions
 
 Choices where the spec is ambiguous. Each keeps determinism and the observable/privileged split.
@@ -295,3 +383,17 @@ Choices where the spec is ambiguous. Each keeps determinism and the observable/p
 - **Fork preview (K)** blocks the game for about 2 s on 256 × 256 (16 × 100 no-op steps). The
   heat map (magenta = burns in all futures) stays until K is pressed again or the world is
   reset or loaded.
+- **Training data.**
+  - **Model state vs observation.** Samplers may use the ground-truth observable state of
+    cells the agent does not see. That state is the model's own state (teacher forcing), not
+    an observation. `seen` masks mark what the agent actually saw.
+  - **Privileged data.** Exact timers, global statistics and event causes appear only under
+    `probe`, never in a sample's input or target.
+  - **Burn-in.** Datasets start after a 1200-step burn-in, since episodes starting at the
+    initial world mostly show the start-up transient.
+  - **Revisits at load time.** Exits and re-entries are derived at load time from `agent.npy`
+    (`tiles.visibility` / `tiles.absences`) for any tile size and region radius, so the
+    recording fixes neither.
+  - **Ignition causes.** Lightning is recomputed from the dynamics' own random numbers, so a
+    strike on a cell that also had burning neighbours counts as lightning. Neighbours are
+    taken after the agent's action.
