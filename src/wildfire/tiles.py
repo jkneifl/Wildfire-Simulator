@@ -38,6 +38,47 @@ def extract_tile(s: WorldState, tile: tuple[int, int], T: int) -> dict[str, np.n
     return {k: np.array(getattr(s, k)[..., ys, xs]) for k in LAYERS}
 
 
+def visibility(agent: np.ndarray, radius: int, T: int, shape) -> np.ndarray:
+    """``(steps, rows, cols)`` bool: tile intersects the square of ``radius`` around the agent.
+
+    ``agent`` is ``agent.npy`` (columns x, y, ...). ``radius = window // 2`` gives the agent
+    window; a larger radius gives e.g. the extent of an active region.
+    """
+    rows, cols = grid_shape(shape, T)
+    x, y = agent[:, 0], agent[:, 1]
+    ya = np.clip((y - radius) // T, 0, rows - 1)
+    yb = np.clip((y + radius) // T, -1, rows - 1)
+    xa = np.clip((x - radius) // T, 0, cols - 1)
+    xb = np.clip((x + radius) // T, -1, cols - 1)
+    ry, rx = np.arange(rows), np.arange(cols)
+    in_y = (ry[None] >= ya[:, None]) & (ry[None] <= yb[:, None])
+    in_x = (rx[None] >= xa[:, None]) & (rx[None] <= xb[:, None])
+    inside_y = (y + radius >= 0) & (y - radius < shape[0])
+    inside_x = (x + radius >= 0) & (x - radius < shape[1])
+    in_y &= inside_y[:, None]
+    in_x &= inside_x[:, None]
+    return in_y[:, :, None] & in_x[:, None, :]
+
+
+def absences(vis: np.ndarray) -> np.ndarray:
+    """Exits and re-entries from a visibility array.
+
+    Returns int64 ``(n, 4)`` rows ``(ty, tx, exit, reentry)``: the tile was visible at step
+    ``exit``, invisible strictly between, and visible again at ``reentry``. Tiles that never
+    return get ``reentry = -1``.
+    """
+    leave = vis[:-1] & ~vis[1:]
+    enter = ~vis[:-1] & vis[1:]
+    out = []
+    for ty, tx in zip(*np.nonzero(leave.any(0))):
+        exits = np.flatnonzero(leave[:, ty, tx])
+        entries = np.flatnonzero(enter[:, ty, tx]) + 1
+        for e in exits:
+            later = entries[entries > e]
+            out.append((ty, tx, e, later[0] if later.size else -1))
+    return np.array(out, np.int64).reshape(-1, 4)
+
+
 class TileTracker:
     """Per-tile first and last step at which any of its cells was in the agent window."""
 

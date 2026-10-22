@@ -211,3 +211,82 @@ def mmd(x, y, bandwidth: float | None = None) -> float:
     sxx = (kxx.sum() - np.trace(kxx)) / (n * (n - 1)) if n > 1 else 0.0
     syy = (kyy.sum() - np.trace(kyy)) / (m * (m - 1)) if m > 1 else 0.0
     return float(sxx + syy - 2 * kxy.mean())
+
+
+# --- behaviour statistics (agent trajectories, for comparing policies with human play) ----
+
+SCALAR_BEHAVIOUR = (
+    "frac_move", "frac_idle", "frac_ignite", "frac_water", "move_success", "fire_visible_frac",
+)  # fmt: skip
+SAMPLE_BEHAVIOUR = ("straight_runs", "idle_runs", "dist_fire_at_water", "revisit_gaps")
+COVERAGE_STEPS = (250, 500, 1000, 2000, 4000)
+
+
+def _runs(mask: np.ndarray, values: np.ndarray | None = None) -> np.ndarray:
+    """Lengths of maximal runs where ``mask`` is true (and ``values`` stays constant)."""
+    if not mask.any():
+        return np.zeros(0, np.int64)
+    key = np.where(mask, 1 if values is None else values, -1)
+    bounds = np.concatenate([[0], np.flatnonzero(np.diff(key) != 0) + 1, [len(key)]])
+    starts, lengths = bounds[:-1], np.diff(bounds)
+    return lengths[mask[starts]]
+
+
+def behaviour_stats(actions, agent, obs_grid, cfg: Config) -> dict:
+    """Statistics of one episode's behaviour from ``actions``, ``agent`` and ``obs_grid``.
+
+    Uses only what the agent did and saw. Scalars are listed in ``SCALAR_BEHAVIOUR``, sample
+    arrays in ``SAMPLE_BEHAVIOUR``; ``coverage`` is the number of tiles seen after
+    ``COVERAGE_STEPS`` steps (clipped to the episode length).
+    """
+    from .tiles import absences, visibility
+
+    a = np.asarray(actions)
+    ag = np.asarray(agent)
+    move = (a >= 1) & (a <= 4)
+    moved = np.any(ag[1:, :2] != ag[:-1, :2], axis=1)
+    r = cfg.window // 2
+    burning = np.asarray(obs_grid)[..., 2] > 0  # (T+1, V, V)
+    dist = []
+    for i in np.flatnonzero(a == 6):
+        ys, xs = np.nonzero(burning[i])
+        if ys.size:
+            dist.append(int(np.min(np.maximum(abs(ys - r), abs(xs - r)))))
+    vis = visibility(ag, r, cfg.tile, (cfg.height, cfg.width))
+    gaps = absences(vis)
+    gaps = gaps[gaps[:, 3] >= 0]
+    ever = np.maximum.accumulate(vis.reshape(len(vis), -1), axis=0).sum(1)  # tiles seen so far
+    frac = (lambda m: float(m.mean())) if len(a) else (lambda m: 0.0)  # noqa: E731
+    return {
+        "frac_move": frac(move),
+        "frac_idle": frac(a == 0),
+        "frac_ignite": frac(a == 5),
+        "frac_water": frac(a == 6),
+        "move_success": float(moved[move].mean()) if move.any() else 0.0,
+        "fire_visible_frac": float(burning.any((1, 2)).mean()),
+        "straight_runs": _runs(move, a),
+        "idle_runs": _runs(a == 0),
+        "dist_fire_at_water": np.array(dist, np.int64),
+        "revisit_gaps": gaps[:, 3] - gaps[:, 2],
+        "coverage": np.array([ever[min(k, len(ever) - 1)] for k in COVERAGE_STEPS]),
+        "n_steps": len(a),
+    }
+
+
+def behaviour_distance(a: list[dict], b: list[dict]) -> dict[str, float]:
+    """Per-statistic energy distance between two sets of episodes' ``behaviour_stats``.
+
+    Scalars and coverage are compared as one value per episode; sample statistics pool all
+    samples of the episodes (log1p-transformed, so long runs and gaps do not dominate).
+    """
+    out = {}
+    for k in SCALAR_BEHAVIOUR:
+        out[k] = energy_distance([e[k] for e in a], [e[k] for e in b])
+    for k in SAMPLE_BEHAVIOUR:
+        xa = np.concatenate([e[k] for e in a]) if a else np.zeros(0)
+        xb = np.concatenate([e[k] for e in b]) if b else np.zeros(0)
+        out[k] = energy_distance(np.log1p(xa), np.log1p(xb)) if xa.size and xb.size else np.nan
+    out["coverage"] = energy_distance(
+        np.log1p([e["coverage"] for e in a]), np.log1p([e["coverage"] for e in b])
+    )
+    return out

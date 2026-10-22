@@ -59,6 +59,16 @@ class Config:
     def replace(self, **changes) -> Config:
         return dataclasses.replace(self, **changes)
 
+    def with_overrides(self, items: list[str]) -> tuple[Config, dict]:
+        """Apply ``key=value`` strings (YAML values, cast to the field's type)."""
+        overrides = {}
+        for item in items:
+            k, v = item.split("=", 1)
+            if k not in {f.name for f in fields(self)}:
+                raise ValueError(f"unknown config key {k!r}")
+            overrides[k] = type(getattr(self, k))(yaml.safe_load(v))
+        return self.replace(**overrides), overrides
+
     @property
     def start_step(self) -> int:
         return round(self.start_hour / 24 * self.day_length)

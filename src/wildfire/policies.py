@@ -20,11 +20,15 @@ MOVES = (A.MOVE_N, A.MOVE_E, A.MOVE_S, A.MOVE_W)
 
 class Policy:
     name = "base"
+    params: tuple[str, ...] = ()  # tunable class attributes (see make_policy)
 
     def __init__(self, cfg: Config, seed: int = 0):
         self.cfg, self.seed = cfg, seed
         self.counter = 0
         self.log: list = []
+
+    def param_values(self) -> dict:
+        return {k: getattr(self, k) for k in self.params}
 
     def uniform(self, n: int = 1) -> np.ndarray:
         u = rng.uniform(self.seed, 0, self.counter, Purpose.POLICY, np.zeros(n, int), np.arange(n))
@@ -48,6 +52,7 @@ class RandomWalk(Policy):
 
     name = "random_walk"
     turn = 0.15
+    params = ("turn",)
 
     def __init__(self, cfg: Config, seed: int = 0):
         super().__init__(cfg, seed)
@@ -79,6 +84,7 @@ class Firestarter(RandomWalk):
 
     name = "firestarter"
     p_ignite = 0.02
+    params = ("turn", "p_ignite")
 
     def act(self, obs: dict, info: dict) -> int:
         if self.uniform()[0] < self.p_ignite:
@@ -124,6 +130,9 @@ class ExploreReturn(RandomWalk):
     name = "explore_return"
     observe_steps = 40
     dt_min, dt_max = 50, 2000
+    p_ignite_before_leave = 0.0  # > 0: set a fire before leaving (explore_return_act)
+    p_water = 0.0  # > 0: water visible fire in front while observing
+    params = ("turn", "observe_steps", "dt_min", "dt_max", "p_ignite_before_leave", "p_water")
 
     def __init__(self, cfg: Config, seed: int = 0):
         super().__init__(cfg, seed)
@@ -146,6 +155,15 @@ class ExploreReturn(RandomWalk):
                 u = self.uniform()[0]
                 self.dt = float(np.exp(np.log(self.dt_min) + u * np.log(self.dt_max / self.dt_min)))
                 self.phase = "leave"
+                if (
+                    self.p_ignite_before_leave > 0
+                    and self.uniform()[0] < self.p_ignite_before_leave
+                ):
+                    return A.IGNITE
+            elif (
+                self.p_water > 0 and fire_ahead(obs, self.cfg) and self.uniform()[0] < self.p_water
+            ):
+                return A.SPRAY
             elif max(abs(x - hx), abs(y - hy)) > self.cfg.tile // 2:
                 return self.toward(obs, hy - y, hx - x)
             return RandomWalk.act(self, obs, info)
@@ -207,12 +225,154 @@ class ExploreReturn(RandomWalk):
         return MOVES[self.heading]
 
 
+class ExploreReturnAct(ExploreReturn):
+    """``ExploreReturn`` that often sets a fire before leaving, so that a directed event
+    starts in view and evolves while the place is out of sight."""
+
+    name = "explore_return_act"
+    p_ignite_before_leave = 0.5
+    p_water = 0.05
+
+
+def fire_ahead(obs: dict, cfg: Config) -> bool:
+    """A burning cell within one cell of the cell in front (what a spray would reach)."""
+    r = cfg.window // 2
+    f = int(obs["agent"]["facing"])
+    cy, cx = r + A.DY[f], r + A.DX[f]
+    return bool(obs["grid"][cy - 1 : cy + 2, cx - 1 : cx + 2, 2].any())
+
+
+class Player(RandomWalk):
+    """Intent-based stand-in for a human player.
+
+    Intents: ``explore`` (walk to an unseen tile), ``revisit`` (return to a remembered place,
+    preferring places where it set or saw a fire, once its delay has passed), ``ignite`` (set
+    a fire in front, then watch nearby), ``fight`` (water the nearest visible fire),
+    ``refill`` (walk to visible water when the tank is empty) and ``idle``. An intent is held
+    for a sampled dwell time and then re-chosen with context-dependent weights. Uses only
+    the observation, ``info`` (own position, own tile history) and its own memory.
+    """
+
+    name = "player"
+    w_explore, w_revisit, w_ignite, w_fight, w_idle = 1.0, 0.6, 0.25, 2.0, 0.2
+    dwell_mean = 60.0  # steps an intent is held (exponential)
+    idle_mean = 8.0  # steps of an idle intent
+    watch_steps = 30  # steps spent near a fire after setting it
+    revisit_median = 400.0  # delay before a remembered place is due (log-normal)
+    p_pause = 0.05  # per-step hesitation while moving
+    turn = 0.1
+    params = (
+        "w_explore", "w_revisit", "w_ignite", "w_fight", "w_idle",
+        "dwell_mean", "idle_mean", "watch_steps", "revisit_median", "p_pause", "turn",
+    )  # fmt: skip
+    INTENTS = ("explore", "revisit", "ignite", "fight", "refill", "idle")
+
+    def __init__(self, cfg: Config, seed: int = 0):
+        super().__init__(cfg, seed)
+        self.intent, self.until, self.target = None, -1, None
+        self.places: list[dict] = []  # remembered places {x, y, t, due}
+        self.ignited_at = None
+
+    def exp(self, mean: float) -> float:
+        return float(-mean * np.log(1 - self.uniform()[0]))
+
+    def remember(self, x: int, y: int, t: int) -> None:
+        if any(abs(p["x"] - x) + abs(p["y"] - y) < self.cfg.tile for p in self.places):
+            return
+        z = np.sqrt(-2 * np.log(1 - self.uniform()[0])) * np.cos(2 * np.pi * self.uniform()[0])
+        self.places.append(
+            {"x": x, "y": y, "t": t, "due": t + self.revisit_median * np.exp(0.7 * z)}
+        )
+
+    def choose(self, obs: dict, info: dict) -> None:
+        g, t = obs["grid"], info["step"]
+        fire = bool(g[..., 2].any())
+        empty = obs["agent"]["tank"] == 0 and not self.cfg.infinite_water
+        due = [p for p in self.places if p["due"] <= t]
+        w = {
+            "explore": self.w_explore,
+            "revisit": self.w_revisit if due else 0.0,
+            "ignite": self.w_ignite,
+            "fight": self.w_fight if fire and not empty else 0.0,
+            "refill": 4.0 if empty and (g[..., 0] == 1).any() else 0.0,
+            "idle": self.w_idle,
+        }
+        names = [k for k in self.INTENTS if w[k] > 0]
+        p = np.array([w[k] for k in names]) / sum(w[k] for k in names)
+        self.intent = names[int(np.searchsorted(np.cumsum(p), self.uniform()[0] * 0.999999))]
+        dwell = self.idle_mean if self.intent == "idle" else self.dwell_mean
+        self.until = t + 1 + int(self.exp(dwell))
+        self.target, self.ignited_at = None, None
+        x, y = info["pos"]
+        if self.intent == "revisit":
+            self.target = due[self.choice(len(due))]
+            self.places.remove(self.target)
+            self.target = (self.target["x"], self.target["y"])
+        elif self.intent == "explore":
+            unseen = np.argwhere(info["last_seen"] < 0)
+            if len(unseen):
+                T = self.cfg.tile
+                c = unseen * T + T // 2
+                d = np.abs(c[:, 0] - y) + np.abs(c[:, 1] - x)
+                near = unseen[np.argsort(d)[:8]]
+                ty, tx = near[self.choice(len(near))]
+                self.target = (int(tx * T + T // 2), int(ty * T + T // 2))
+
+    def act(self, obs: dict, info: dict) -> int:
+        t, (x, y), g = info["step"], info["pos"], obs["grid"]
+        if g[..., 2].any():
+            self.remember(x, y, t)
+        if self.intent is None or t >= self.until:
+            self.choose(obs, info)
+        if self.intent not in ("idle", "fight") and self.uniform()[0] < self.p_pause:
+            return A.NOOP
+        if self.intent == "idle":
+            return A.NOOP
+        if self.intent == "fight":
+            if not g[..., 2].any() or (obs["agent"]["tank"] == 0 and not self.cfg.infinite_water):
+                self.until = t  # nothing (left) to fight
+                return RandomWalk.act(self, obs, info)
+            return Firefighter.act(self, obs, info)
+        if self.intent == "refill":
+            if obs["agent"]["tank"] > 0:
+                self.until = t
+            return Firefighter.act(self, obs, info)
+        if self.intent == "ignite":
+            if self.ignited_at is None:
+                r = self.cfg.window // 2
+                f = int(obs["agent"]["facing"])
+                ahead = g[r + A.DY[f], r + A.DX[f]]
+                if ahead[1] > 0 and ahead[2] == 0 and ahead[4] < 2:
+                    self.ignited_at = t
+                    self.until = t + 1 + self.watch_steps
+                    self.remember(x, y, t)
+                    return A.IGNITE
+                return RandomWalk.act(self, obs, info)  # look for something to burn
+            return RandomWalk.act(self, obs, info) if self.uniform()[0] < 0.3 else A.NOOP
+        if self.target is not None:
+            tx, ty = self.target
+            if abs(tx - x) + abs(ty - y) <= 2:
+                self.until = t  # arrived: choose again next step
+                return A.NOOP
+            return self.toward(obs, ty - y, tx - x)
+        return RandomWalk.act(self, obs, info)
+
+
+Player.nearest = Firefighter.nearest  # reuse the nearest-visible-cell helper
+
 POLICIES: dict[str, type[Policy]] = {
-    p.name: p for p in (RandomWalk, ExploreReturn, Firestarter, Firefighter)
+    p.name: p
+    for p in (RandomWalk, ExploreReturn, ExploreReturnAct, Firestarter, Firefighter, Player)
 }
 
 
-def make_policy(name: str, cfg: Config, seed: int = 0) -> Policy:
+def make_policy(name: str, cfg: Config, seed: int = 0, params: dict | None = None) -> Policy:
+    """Instantiate a policy; ``params`` override its tunable class attributes."""
     if name not in POLICIES:
         raise ValueError(f"unknown policy {name!r}; choose from {sorted(POLICIES)}")
-    return POLICIES[name](cfg, seed)
+    pol = POLICIES[name](cfg, seed)
+    for k, v in (params or {}).items():
+        if k not in pol.params:
+            raise ValueError(f"{name} has no parameter {k!r}; tunable: {pol.params}")
+        setattr(pol, k, type(getattr(pol, k))(v))
+    return pol

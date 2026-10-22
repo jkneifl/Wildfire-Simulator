@@ -14,7 +14,6 @@ from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
-import yaml
 
 from wildfire import Config
 from wildfire.metrics import patch_stats, regime_summary, simulate_stats
@@ -51,11 +50,7 @@ def main(argv=None) -> None:
     p.add_argument("--no-plots", action="store_true")
     args = p.parse_args(argv)
 
-    cfg = Config.from_yaml(args.config)
-    overrides = {
-        k: type(getattr(cfg, k))(yaml.safe_load(v)) for k, v in (s.split("=", 1) for s in args.set)
-    }
-    cfg = cfg.replace(**overrides)
+    cfg, overrides = Config.from_yaml(args.config).with_overrides(args.set)
     jobs = [(cfg.to_dict(), s, args.days, args.burn_in) for s in args.seeds]
     with Pool(min(len(jobs), 10)) as pool:
         results = pool.map(run, jobs)
