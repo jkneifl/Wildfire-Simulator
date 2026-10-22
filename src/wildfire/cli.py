@@ -143,6 +143,28 @@ def cmd_generate(args) -> None:
     print(f"{args.episodes} episodes x {args.steps} steps in {time.perf_counter() - t0:.1f}s")
 
 
+def cmd_forks(args) -> None:
+    from pathlib import Path
+
+    from . import forksets
+    from .record import load_config
+
+    dts = tuple(int(x) for x in args.dts.split(","))
+    world_dts = tuple(int(x) for x in args.world_dts.split(",")) if args.world_dts else ()
+    out = Path(args.out)
+    for d in args.episodes:
+        cfg, _ = load_config(d)
+        for tau, tiles in forksets.pick_taus(d, args.n_taus, max(dts), args.tile, args.seed):
+            tiles = forksets.add_random_tiles(
+                tiles, args.random_tiles, (cfg.height, cfg.width), args.tile, args.seed, tau
+            )
+            t0 = time.perf_counter()
+            target = out / f"{Path(d).name}_tau{tau:06d}"
+            forksets.build(d, tau, tiles, args.n, dts, world_dts, args.tile, target)
+            dt = time.perf_counter() - t0
+            print(f"wrote {target}.npz: {len(tiles)} tiles x {len(dts)} checkpoints ({dt:.0f}s)")
+
+
 def cmd_rerecord(args) -> None:
     from pathlib import Path
 
@@ -207,6 +229,18 @@ def main(argv=None) -> None:
     rr.add_argument("--out", required=True)
     add_products(rr)
     rr.set_defaults(func=cmd_rerecord)
+
+    fk = sub.add_parser("forks", help="Monte Carlo reference sets from recorded episodes")
+    fk.add_argument("episodes", nargs="+")
+    fk.add_argument("--out", required=True)
+    fk.add_argument("--n", type=int, default=32, help="futures per fork set")
+    fk.add_argument("--dts", default=",".join(str(2**k) for k in range(3, 12)))
+    fk.add_argument("--world-dts", default="", help="checkpoints with full-world grids")
+    fk.add_argument("--n-taus", type=int, default=2, help="fork sets per episode")
+    fk.add_argument("--random-tiles", type=int, default=4, help="extra tiles per fork set")
+    fk.add_argument("--tile", type=int, default=16)
+    fk.add_argument("--seed", type=int, default=0)
+    fk.set_defaults(func=cmd_forks)
 
     args = p.parse_args(argv)
     args.func(args)
