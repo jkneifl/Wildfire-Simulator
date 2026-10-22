@@ -129,3 +129,21 @@ def test_generate_with_burn_in_replays_from_snapshot(tmp_path):
     assert not meta["from_reset"] and meta["burn_in"] == 60
     assert meta["start_step"] == 60 + 60  # small config starts at 06:00 = step 60
     assert replay(out / "ep_0000")["steps"] == 40
+
+
+def test_replay_detects_extra_rows_and_missing_world_grid(small, tmp_path):
+    d = _record(small, tmp_path / "ep", 30, Products(world_every=10, globals=True))
+    g = np.load(d / "globals.npy")
+    np.save(d / "globals.npy", np.concatenate([g, g[-1:]]))
+    with pytest.raises(ReplayMismatch, match="globals rows"):
+        replay(d)
+    np.save(d / "globals.npy", g)
+    (d / "world" / "step_000020.npz").unlink()
+    with pytest.raises(ReplayMismatch, match="world grids at unexpected steps"):
+        replay(d)
+
+
+def test_config_overrides_reject_truncation(small):
+    assert small.with_overrides(["tank=3"])[0].tank == 3
+    with pytest.raises(ValueError, match="integer"):
+        small.with_overrides(["tank=2.7"])

@@ -183,7 +183,9 @@ def resample_baseline(world_grids, phases, phase, tile: int, n: int, cfg, tol=0.
         raise ValueError(f"no world grids within phase {phase} +- {tol}")
     H, W = world_grids[0].shape[:2]
     rows, cols = H // tile, W // tile
-    u = uniform(seed, 4, 0, Purpose.SAMPLER, np.zeros(3 * n, int), np.arange(3 * n)).reshape(n, 3)
+    step = int(round(phase * 1e6))  # different draws per phase, reproducible per seed
+    u = uniform(seed, 4, step, Purpose.SAMPLER, np.zeros(3 * n, int), np.arange(3 * n))
+    u = u.reshape(n, 3)
     out = []
     for a, b, c in u:
         g = world_grids[pool[int(a * pool.size)]]

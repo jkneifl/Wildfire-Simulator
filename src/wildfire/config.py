@@ -66,7 +66,10 @@ class Config:
             k, v = item.split("=", 1)
             if k not in {f.name for f in fields(self)}:
                 raise ValueError(f"unknown config key {k!r}")
-            overrides[k] = type(getattr(self, k))(yaml.safe_load(v))
+            value, kind = yaml.safe_load(v), type(getattr(self, k))
+            if kind is int and not float(value).is_integer():
+                raise ValueError(f"{k} must be an integer, got {v!r}")
+            overrides[k] = kind(value)
         return self.replace(**overrides), overrides
 
     @property

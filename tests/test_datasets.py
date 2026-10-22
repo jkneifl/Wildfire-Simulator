@@ -97,3 +97,16 @@ def test_refinement_and_triples(episodes):
     tr = TripleSampler(episodes, seed=6).sample(3)
     assert tr["input"]["dt"] >= 1 and len(tr["input"]["clocks"]) == 3
     assert tr["meta"]["tau"] + 2 * tr["input"]["dt"] <= 500
+
+
+def test_triples_stay_on_world_grid_steps(tmp_path):
+    out = tmp_path / "w4"
+    cli_main(
+        ["generate", "--config", "configs/small.yaml", "--policy", "player",
+         "--world-every", "4", "--episodes", "1", "--steps", "102", "--workers", "1",
+         "--out", str(out)]
+    )  # fmt: skip
+    s = TripleSampler(Episodes(out), dt_range=(4, 100), seed=6)
+    for i in range(300):  # n_steps = 102 is not a multiple of world_every = 4
+        x = s.sample(i)
+        assert x["meta"]["tau"] % 4 == 0 and x["input"]["dt"] % 4 == 0

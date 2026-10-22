@@ -357,7 +357,7 @@ class TripleSampler(TileSampler):
         ep = E.eps[e]
         we = ep["world_every"]
         dt = max((t - tau) // 2 // we * we, we)
-        tau = max(min(tau, ep["n_steps"] - 2 * dt), 0)
+        tau = max(min(tau, ep["n_steps"] - 2 * dt) // we * we, 0)  # stay on world-grid steps
         t1, t2 = tau + dt, tau + 2 * dt
         return {
             "input": {

@@ -245,7 +245,18 @@ def replay(ep_dir: str | Path, check_obs: bool = True) -> dict:
     def fail(what: str, i: int):
         raise ReplayMismatch(f"{ep_dir}: {what} differs at step {i}")
 
-    for i in range(len(actions) + 1):
+    n = len(actions) + 1  # recorded steps including step 0
+    lengths = {"agent": len(agent), "near crops": None if near is None else len(near),
+               "globals": None if glob is None else len(glob)}  # fmt: skip
+    for what, got in lengths.items():
+        if got is not None and got != n:
+            raise ReplayMismatch(f"{ep_dir}: {got} {what} rows for {n} steps")
+    if p.world_every:
+        expect = list(range(0, n, p.world_every))
+        if ds.world_steps(0) != expect:
+            raise ReplayMismatch(f"{ep_dir}: world grids at unexpected steps")
+
+    for i in range(n):
         if i > 0:
             prev, s = s, step(s, int(actions[i - 1]), cfg)
             if events is not None:

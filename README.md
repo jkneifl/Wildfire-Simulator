@@ -284,6 +284,19 @@ The correlation of tile vegetated fraction between `τ` and `τ + Δt` is 0.88 a
 at 200, 0.04 at 250 and −0.41 at 500. This comes from one pilot of 4 short episodes, not a
 dataset-level estimate.
 
+**Known limitations** (from the verification pass):
+- **`world_every > 1`.**
+  - Real revisits need exit and re-entry on world-grid steps, so most of them are dropped.
+  - `DynamicsSampler` takes every level from `world/` and does not use the near crop, so its
+    `dt` must be a multiple of `world_every`.
+
+  Both are fine with the default `world_every = 1`.
+- **Energy distances.** The split-half floor (16 vs 16), the frozen distance (32 vs 1) and
+  the resample distance (32 vs 32) are V-statistics with different sample-size bias. Use them
+  to compare trends, not as exact equals.
+- **`rerecord`** re-simulates from the step-0 snapshot; run `replay` on the source first if
+  its provenance is unclear.
+
 **Projected budget** (extrapolated from the pilot, not measured): about 0.57 GB per 4000-step
 episode, so about 88 training episodes fit in 50 GB. Time is about 3.6 minutes per episode per
 core: the burn-in at 169 steps/s takes about 7 s, leaving about 52 ms per recorded step.

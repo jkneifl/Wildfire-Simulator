@@ -1,9 +1,10 @@
-"""Command line interface: ``python -m wildfire.cli {run,generate,replay}``."""
+"""Command line interface: ``python -m wildfire.cli {run,generate,replay,rerecord,forks}``."""
 
 from __future__ import annotations
 
 import argparse
 import time
+from pathlib import Path
 
 import numpy as np
 
@@ -99,7 +100,7 @@ def dataset_info(args, extra: dict) -> dict:
         dirty = bool(
             subprocess.run(
                 ["git", "status", "--porcelain", "--untracked-files=no"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True, text=True, timeout=5, cwd=Path(__file__).parent,
             ).stdout.strip()
         )  # fmt: skip
     except (OSError, subprocess.SubprocessError):
