@@ -376,3 +376,35 @@ def make_policy(name: str, cfg: Config, seed: int = 0, params: dict | None = Non
             raise ValueError(f"{name} has no parameter {k!r}; tunable: {pol.params}")
         setattr(pol, k, type(getattr(pol, k))(v))
     return pol
+
+
+def random_action(seed: int, step: int, epsilon: float) -> int | None:
+    """A uniformly random action with probability ``epsilon``, else ``None``.
+
+    Keyed on ``(seed, step)`` in stream 3 of purpose ``POLICY``, apart from the policy's own
+    draws, so ``epsilon = 0`` leaves every episode unchanged. Random actions are taken
+    regardless of the state, so the data also shows actions without effect (blocked moves,
+    water without fire in reach, ignite on bare ground).
+    """
+    if epsilon <= 0:
+        return None
+    u = rng.uniform(seed, 3, step, Purpose.POLICY, np.zeros(2, int), np.arange(2))
+    return int(u[1] * A.N_ACTIONS) if u[0] < epsilon else None
+
+
+def bump_action(seed: int, step: int, p_bump: float, obs: dict, cfg: Config) -> int | None:
+    """With probability ``p_bump``, a move into a neighbouring cell that blocks it (water,
+    rock, outside the world), if there is one; else ``None``.
+
+    Blocked moves are rare under any policy, since few steps are next to an obstacle. Uses
+    lanes 2 and 3 of the :func:`random_action` key, so the two draws are independent.
+    """
+    if p_bump <= 0:
+        return None
+    r = cfg.window // 2
+    g = obs["grid"]
+    blocked = [d for d in range(4) if g[r + A.DY[d], r + A.DX[d], 0] != GROUND]
+    if not blocked:
+        return None
+    u = rng.uniform(seed, 3, step, Purpose.POLICY, np.zeros(2, int), np.arange(2, 4))
+    return MOVES[blocked[int(u[1] * len(blocked))]] if u[0] < p_bump else None

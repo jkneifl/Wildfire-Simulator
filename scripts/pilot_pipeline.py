@@ -3,7 +3,7 @@
     uv run python scripts/pilot_pipeline.py --out data/pilot --report docs/pilot
 
 1. generate 4 episodes x 500 steps after a 1200-step burn-in (player / explore_return_act,
-   all products, seeds 9000+);
+   random actions with probability --epsilon, bumps with --bump, all products, seeds 9000+);
 2. replay one episode with all products (array equality);
 3. draw samples from every sampler and time them;
 4. retention of tile statistics vs dt from the world grids;
@@ -39,18 +39,22 @@ def main(argv=None) -> None:
     p.add_argument("--report", default="docs/pilot")
     p.add_argument("--episodes", type=int, default=4)
     p.add_argument("--steps", type=int, default=500)
+    p.add_argument("--epsilon", type=float, default=0.05, help="random-action probability")
+    p.add_argument("--bump", type=float, default=0.1, help="walk-into-obstacle probability")
     args = p.parse_args(argv)
     out, report_dir = Path(args.out), Path(args.report)
     if out.exists():
         shutil.rmtree(out)
     report_dir.mkdir(parents=True, exist_ok=True)
     rep = {"git": git_hash(), "config": "configs/medium.yaml", "out": str(out)}
+    rep["epsilon"], rep["bump"] = args.epsilon, args.bump
 
     t0 = time.perf_counter()
     cli_main(["generate", "--config", "configs/medium.yaml", "--policy-mix",
               "player:0.5,explore_return_act:0.5", "--products", "all",
               "--episodes", str(args.episodes), "--steps", str(args.steps),
-              "--seed", "9000", "--burn-in", "1200", "--out", str(out)])  # fmt: skip
+              "--seed", "9000", "--burn-in", "1200", "--epsilon", str(args.epsilon),
+              "--bump", str(args.bump), "--out", str(out)])  # fmt: skip
     rep["generate_s"] = time.perf_counter() - t0
     rep["bytes_per_episode"] = int(
         np.mean(
@@ -150,7 +154,7 @@ def main(argv=None) -> None:
     ax[1].set_ylabel("energy distance to reference (mean over tiles)")
     ax[1].set_title(f"fork set: ep_0000, tau={tau}, 32 futures, {len(tiles)} tiles", fontsize=9)
     ax[1].legend()
-    seeds = f"seeds 9000-{9000 + args.episodes - 1}"
+    seeds = f"seeds 9000-{9000 + args.episodes - 1}, epsilon {args.epsilon}, bump {args.bump}"
     title = f"pilot, configs/medium.yaml (512^2), 1200-step burn-in, {seeds}, git {rep['git'][:7]}"
     fig.suptitle(title, fontsize=9)
     fig.tight_layout()
