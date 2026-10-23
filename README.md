@@ -257,7 +257,7 @@ noise floor. To record a session, run
 normally for at least 2000 steps, and press F2 again. Use a different seed for each session.
 
 **Pilot** (`scripts/pilot_pipeline.py`; results in `docs/pilot/pipeline.json` and
-`docs/pilot/pipeline.png`). Setup: git `9c0c919` plus the uncommitted ε and bump change,
+`docs/pilot/pipeline.png`). Setup: git `1f3b912` (clean tree),
 `configs/medium.yaml` (512²), 4 episodes × 500 steps after a 1200-step burn-in, seeds
 9000–9003, policies `player` / `explore_return_act`, random actions with ε = 0.05, bump 0.1,
 M-series Mac. The calibration regime holds at 512² (`docs/calibration/medium`, seeds 0–2,
@@ -266,12 +266,12 @@ M-series Mac. The calibration regime holds at 512² (`docs/calibration/medium`, 
 | measure | value |
 |---|---|
 | `step` alone | 169 steps/s |
-| generate, all products | 33.5 s for 4 episodes on 4 workers; each worker ran 1200 burn-in + 500 recorded steps |
+| generate, all products | 33.8 s for 4 episodes on 4 workers; each worker ran 1200 burn-in + 500 recorded steps |
 | disk per 500-step episode, all products | 70.6 MB |
-| replay with all products checked | 500 steps in 5.9 s, all equal |
-| sample time | dynamics (n = 32, L = 3) 17.8 ms; re-entry 2.8–3.7 ms; refinement 3.9 ms; triples 4.7 ms |
+| replay with all products checked | 500 steps in 6.0 s, all equal |
+| sample time | dynamics (n = 32, L = 3) 17.9 ms; re-entry 2.9–3.8 ms; refinement 4.1 ms; triples 4.8 ms |
 | completed real absences (window, tile 16) | 138 in 2000 steps (167, 129 and 165 in the other rows of the table below) |
-| one fork set (32 futures × 256 steps, 7 tiles) | 45.7 s |
+| one fork set (32 futures × 256 steps, 7 tiles) | 45.5 s |
 
 **Actions and their effect** (all 2000 pilot steps; "effect": the agent moved, the cell ahead
 started burning, or fire was within the 3 × 3 reach of the water action):
