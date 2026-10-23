@@ -1,7 +1,9 @@
 import numpy as np
 
 from wildfire import actions as A
-from wildfire.dynamics import light, run, step
+from wildfire.dynamics import light, run, step, transition_probs
+from wildfire.env import fork
+from wildfire.observe import grid, transition_log_prob
 from wildfire.state import GROUND, ROCK, WATER, equal, stack
 from wildfire.terrain import initial_state
 
@@ -253,3 +255,57 @@ def test_ash_age_saturates(small):
     s.ash_age[0, 1] = 65535
     s = run(s, [0, 0], cfg)
     assert s.ash_age[0, 0] == 65535 and s.ash_age[0, 1] == 65535 and s.ash_age.dtype == np.uint16
+
+
+def _busy_state(cfg, t):
+    """A state with fires, ash of all ages, wet cells and an agent next to vegetation."""
+    s = initial_state(cfg, 3)
+    s = run(s, _random_actions(150, seed=3), cfg)
+    u = np.random.default_rng(0)  # test fixture only, not simulation randomness
+    wet = u.integers(0, 256, s.wet.shape)
+    s.wet = np.where(u.random(s.wet.shape) < 0.3, wet, s.wet).astype(np.uint8)
+    bare = (s.veg == 0) & (s.fire == 0)
+    age = u.integers(0, 2 * cfg.regrow_delay, s.ash_age.shape)
+    s.ash_age = np.where(bare, age, 0).astype(np.uint16)
+    s.t = np.asarray(t, np.int64)
+    return s
+
+
+def test_transition_probs_match_forks(small):
+    cfg = small.replace(p_lightning=0.02, p_grow=0.2, p_seed=0.05, beta=0.35)
+    D, M = cfg.day_length, 2000
+    # L = 0.3 (fractional drying) with spray, noon with ignite, midnight (no growth) with noop.
+    for t, a in [(round(D * 0.185), A.SPRAY), (D // 2, A.IGNITE), (D, A.NOOP)]:
+        s = _busy_state(cfg, t)
+        tp = transition_probs(s, a, cfg)
+        p = tp["prob"]
+        assert p.shape == (*s.veg.shape, 8) and (p >= 0).all() and (p <= 1).all()
+        assert np.allclose(p.sum(-1), 1.0, atol=1e-12)
+        b = fork(s, cfg, n=M, steps=1, actions=[a])
+        match = np.ones((M, *p.shape), bool)
+        for k in ("veg", "fire", "ash_age", "wet"):
+            match &= getattr(b, k)[..., None] == tp[k][None]
+        assert (match & (p[None] > 0)).any(-1).all()  # every realised cell is a possible outcome
+        same = np.ones((*p.shape, 8), bool)
+        for k in ("veg", "fire", "ash_age", "wet"):
+            same &= tp[k][..., :, None] == tp[k][..., None, :]
+        expected = (same * p[..., None, :]).sum(-1)
+        freq = match.mean(0)
+        tol = 6 * np.sqrt(expected * (1 - expected) / M) + 1e-12
+        assert (np.abs(freq - expected) <= tol).all()
+        assert ((expected > 0.01) & (expected < 0.99)).any(-1).sum() > 100  # many random cells
+        # Pooled calibration: per outcome and bin of predicted probability, the total count
+        # over all cells must match (catches small biases the per-cell check cannot).
+        edges = [1e-12, 1e-3, 0.01, 0.05, 0.2, 0.5, 0.8, 0.95, 0.99, 1 - 1e-12]
+        for lo, hi in zip(edges[:-1], edges[1:]):
+            for j in range(8):
+                sel = (expected[..., j] > lo) & (expected[..., j] <= hi)
+                if not sel.any():
+                    continue
+                e_j = expected[..., j][sel]
+                z = (freq[..., j][sel] - e_j).sum() * M / np.sqrt((M * e_j * (1 - e_j)).sum())
+                assert abs(z) < 6, (t, a, j, lo, hi, z)
+        h, w = s.veg.shape
+        for i in range(20):
+            lp = transition_log_prob(tp, grid(b[i], 0, 0, h, w, cfg), cfg)
+            assert np.isfinite(lp).all() and (lp <= 1e-12).all()

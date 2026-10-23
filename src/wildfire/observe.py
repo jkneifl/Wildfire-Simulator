@@ -60,6 +60,19 @@ def grid(s: WorldState, y0: int, x0: int, h: int, w: int, cfg: Config) -> np.nda
     )
 
 
+def transition_log_prob(tp: dict, next_grid: np.ndarray, cfg: Config) -> np.ndarray:
+    """Per-cell ``log p`` of an observed next grid ``(..., H, W, 6)`` (``grid`` channels)
+    under ``tp = dynamics.transition_probs(...)``: the oracle's one-step likelihood."""
+    match = (
+        (tp["veg"] == next_grid[..., 1, None])
+        & (fire_bucket(tp["fire"], cfg) == next_grid[..., 3, None])
+        & (wet_bucket(tp["wet"]) == next_grid[..., 4, None])
+        & (ash_bucket(tp["ash_age"], cfg) == next_grid[..., 5, None])
+    )
+    with np.errstate(divide="ignore"):
+        return np.log((tp["prob"] * match).sum(-1))
+
+
 def agent_window(s: WorldState, cfg: Config) -> tuple[int, int, int, int]:
     """``(y0, x0, h, w)`` of the agent's V x V window."""
     r = cfg.window // 2
