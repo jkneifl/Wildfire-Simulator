@@ -3,7 +3,7 @@ import pytest
 
 from wildfire import Config, WildfireEnv
 from wildfire import actions as A
-from wildfire.policies import POLICIES, make_policy
+from wildfire.policies import POLICIES, bump_action, make_policy, random_action
 
 from .conftest import flat_state
 
@@ -57,3 +57,28 @@ def test_firefighter_puts_out_fire(small):
     acts, pol, env, _ = _rollout(cfg, "firefighter", 0, 40, state=s)
     assert (acts == A.SPRAY).any()
     assert env.state.fire.max() == 0
+
+
+def test_random_action():
+    assert all(random_action(0, t, 0.0) is None for t in range(100))
+    a = [random_action(0, t, 0.2) for t in range(20000)]
+    assert a == [random_action(0, t, 0.2) for t in range(20000)]
+    taken = np.array([x for x in a if x is not None])
+    assert abs(len(taken) / len(a) - 0.2) < 0.02
+    counts = np.bincount(taken, minlength=A.N_ACTIONS)
+    assert counts.size == A.N_ACTIONS and np.all(np.abs(counts / len(taken) - 1 / 7) < 0.02)
+
+
+def test_bump_action(small):
+    r = small.window // 2
+    grid = np.zeros((small.window, small.window, 6), np.uint8)  # all ground
+    obs = {"grid": grid}
+    assert all(bump_action(0, t, 1.0, obs, small) is None for t in range(100))  # no obstacle
+    grid[r, r + 1, 0] = 1  # water to the east
+    assert all(bump_action(0, t, 0.0, obs, small) is None for t in range(100))
+    assert all(bump_action(0, t, 1.0, obs, small) == A.MOVE_E for t in range(100))
+    taken = [bump_action(0, t, 0.3, obs, small) for t in range(10000)]
+    assert abs(sum(a is not None for a in taken) / len(taken) - 0.3) < 0.02
+    # independent of random_action's draw at the same seed and step
+    both = [random_action(0, t, 0.3) is not None and a is not None for t, a in enumerate(taken)]
+    assert abs(np.mean(both) - 0.09) < 0.015

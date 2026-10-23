@@ -117,7 +117,11 @@ stay away for a log-uniform `Δt` in 50–2000 steps without bringing it back in
 `policy_log` in `meta.json` lists `{tile, leave_step, return_step, dt}`), `firestarter`
 (random walk, ignites with probability 0.02 per step), `firefighter` (waters the nearest
 visible fire, refills at the nearest visible water). All randomness uses purpose `POLICY`
-with the policy's seed.
+with the policy's seed. `generate --epsilon ε` replaces the policy's action by a uniformly
+random one with probability ε per step (`policies.random_action`), so the data also contains
+actions without effect: blocked moves, water without fire in reach, ignite on bare ground.
+`generate --bump p` walks into an adjacent obstacle (water, rock, world edge) with
+probability p (`policies.bump_action`), since few steps are next to one.
 
 ## Calibration (M4)
 
@@ -253,32 +257,51 @@ noise floor. To record a session, run
 normally for at least 2000 steps, and press F2 again. Use a different seed for each session.
 
 **Pilot** (`scripts/pilot_pipeline.py`; results in `docs/pilot/pipeline.json` and
-`docs/pilot/pipeline.png`). Setup: git `3cf109e`, `configs/medium.yaml` (512²), 4 episodes ×
-500 steps after a 1200-step burn-in, seeds 9000–9003, policies `player` / `explore_return_act`,
+`docs/pilot/pipeline.png`). Setup: git `1f3b912` (clean tree),
+`configs/medium.yaml` (512²), 4 episodes × 500 steps after a 1200-step burn-in, seeds
+9000–9003, policies `player` / `explore_return_act`, random actions with ε = 0.05, bump 0.1,
 M-series Mac. The calibration regime holds at 512² (`docs/calibration/medium`, seeds 0–2,
 30 days): fire in 100 % of steps, vegetation 0.34–0.77.
 
 | measure | value |
 |---|---|
 | `step` alone | 169 steps/s |
-| generate, all products | 33.1 s for 4 episodes on 4 workers; each worker ran 1200 burn-in + 500 recorded steps |
-| disk per 500-step episode, all products | 70.7 MB |
-| replay with all products checked | 500 steps in 5.8 s, all equal |
-| sample time | dynamics (n = 32, L = 3) 17.5 ms; re-entry 3.0–3.9 ms; refinement 4.0 ms; triples 4.5 ms |
-| completed real absences (window, tile 16) | 167 in 2000 steps |
-| one fork set (32 futures × 256 steps, 7 tiles) | 45.0 s |
+| generate, all products | 33.8 s for 4 episodes on 4 workers; each worker ran 1200 burn-in + 500 recorded steps |
+| disk per 500-step episode, all products | 70.6 MB |
+| replay with all products checked | 500 steps in 6.0 s, all equal |
+| sample time | dynamics (n = 32, L = 3) 17.9 ms; re-entry 2.9–3.8 ms; refinement 4.1 ms; triples 4.8 ms |
+| completed real absences (window, tile 16) | 138 in 2000 steps (167, 129 and 165 in the other rows of the table below) |
+| one fork set (32 futures × 256 steps, 7 tiles) | 45.5 s |
 
-**Fork set and retention** (`ep_0000`, `τ` = episode step 3, 7 tiles). Energy distance to the
+**Actions and their effect** (all 2000 pilot steps; "effect": the agent moved, the cell ahead
+started burning, or fire was within the 3 × 3 reach of the water action):
+
+| | moves | ignite | water |
+|---|---|---|---|
+| ε = 0, bump 0 (same seeds, git `9c0c919`) | 1723 / 1723 | 11 / 11 | 40 / 40 |
+| ε = 0.05, bump 0 | 1744 / 1746 | 11 / 13 | 46 / 60 |
+| ε = 0.05, bump 0.2 | 1661 / 1714 | 12 / 14 | 39 / 54 |
+| ε = 0.05, bump 0.1 (current) | 1758 / 1783 | 9 / 11 | 68 / 82 |
+
+Without random actions the scripted policies never take an action without effect. The agent
+is next to water or rock on 12 % of steps, so ε alone gives few blocked moves (2); bump 0.2
+gives 53 and bump 0.1 gives 25. With bump 0.2 one `player` episode stayed within 4 cells in
+30 % of 50-step windows (3 % without bump, 4 % with bump 0.1), so the pilot uses 0.1. The
+other `player` episode did not show this, and two episodes cannot separate the effect of
+bump from chance.
+
+**Fork set and retention** (`ep_0000`, `τ` = episode step 4, 7 tiles). Energy distance to the
 reference, mean over tiles:
 
 | `Δt` | 8 | 16 | 32 | 64 | 128 | 256 |
 |---|---|---|---|---|---|---|
-| frozen | 0.024 | 0.058 | 0.148 | 0.360 | 0.666 | 0.845 |
-| phase-matched resampling | 0.530 | 0.601 | 0.725 | 0.528 | 0.333 | 0.302 |
-| split-half noise floor | 0.001 | 0.003 | 0.003 | 0.004 | 0.005 | 0.006 |
+| frozen | 0.020 | 0.052 | 0.137 | 0.363 | 0.768 | 0.904 |
+| phase-matched resampling | 0.568 | 0.702 | 0.696 | 0.610 | 0.614 | 0.507 |
+| split-half noise floor | 0.002 | 0.002 | 0.005 | 0.007 | 0.006 | 0.006 |
 
 The frozen tile wins up to `Δt` = 64 and resampling wins from 128 on; neither reaches the
-noise floor at any `Δt`.
+noise floor at any `Δt`. Without random actions (`τ` = 3, otherwise the same setup) the
+pattern was the same; adding bump left these values unchanged to three decimals.
 
 The correlation of tile vegetated fraction between `τ` and `τ + Δt` is 0.88 at 50 steps, 0.22
 at 200, 0.04 at 250 and −0.41 at 500. This comes from one pilot of 4 short episodes, not a
@@ -410,3 +433,11 @@ Choices where the spec is ambiguous. Each keeps determinism and the observable/p
   - **Ignition causes.** Lightning is recomputed from the dynamics' own random numbers, so a
     strike on a cell that also had burning neighbours counts as lightning. Neighbours are
     taken after the agent's action.
+  - **Random actions.** For action-conditioned prediction the data needs actions taken
+    independently of the state, not human-like action shares. `--epsilon` draws from stream 3
+    of purpose `POLICY`, keyed by episode seed and step, so ε = 0 reproduces earlier datasets
+    bit for bit. The policy is not called on a random step and picks up from the new state.
+    Random steps are not flagged in the recording; they can be recomputed from seed and step.
+  - **Bump.** `--bump` uses lanes 2 and 3 of the same key, so it is independent of ε; a
+    random action takes precedence. It depends on the observed terrain, but only where a
+    blocked move is possible at all, and those steps still contain ordinary moves.

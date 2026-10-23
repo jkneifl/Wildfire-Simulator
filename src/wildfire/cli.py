@@ -32,7 +32,7 @@ def cmd_run(args) -> None:
 def generate_episode(job: dict) -> str:
     """Generate one episode from a job dict (see :func:`cmd_generate`)."""
     from .env import WildfireEnv
-    from .policies import make_policy
+    from .policies import bump_action, make_policy, random_action
     from .record import Products, Recorder
     from .tiles import TileTracker
 
@@ -50,13 +50,18 @@ def generate_episode(job: dict) -> str:
         job["out"], cfg, env.state, job["policy"], not burn_in, job["rgb"],
         Products(**job["products"]),
     )  # fmt: skip
+    epsilon, bump = job.get("epsilon", 0.0), job.get("bump", 0.0)
     for _ in range(job["steps"]):
-        a = policy.act(obs, info)
+        a = random_action(job["seed"], info["step"], epsilon)
+        if a is None:
+            a = bump_action(job["seed"], info["step"], bump, obs, cfg)
+        if a is None:  # the policy is not asked on random or bump steps
+            a = policy.act(obs, info)
         obs, _, _, _, info = env.step(a)
         rec.add(a, env.state, obs)
     rec.close(
         policy_seed=job["seed"], policy_params=policy.param_values(), policy_log=policy.log,
-        burn_in=burn_in,
+        burn_in=burn_in, epsilon=epsilon, bump=bump,
     )  # fmt: skip
     return str(job["out"])
 
@@ -134,6 +139,7 @@ def cmd_generate(args) -> None:
                 "config": cfg.to_dict(), "policy": name, "params": params.get(name, {}),
                 "seed": seed, "steps": args.steps, "out": out / f"ep_{i:04d}",
                 "rgb": args.rgb, "products": products, "burn_in": args.burn_in,
+                "epsilon": args.epsilon, "bump": args.bump,
             }
         )  # fmt: skip
     out.mkdir(parents=True, exist_ok=True)
@@ -223,6 +229,12 @@ def main(argv=None) -> None:
         "--policy-mix", default=None, help="per-episode mix, e.g. player:0.8,explore_return:0.2"
     )
     g.add_argument("--policy-params", default=None, help='JSON {"player": {"w_idle": 0.3}}')
+    g.add_argument(
+        "--epsilon", type=float, default=0.0, help="per-step probability of a random action"
+    )
+    g.add_argument(
+        "--bump", type=float, default=0.0, help="probability of walking into an adjacent obstacle"
+    )
     g.add_argument("--episodes", type=int, default=10)
     g.add_argument("--steps", type=int, default=2000)
     g.add_argument("--out", required=True)

@@ -1,0 +1,105 @@
+{
+  "human": "recordings",
+  "n_human": 6,
+  "steps": 2570,
+  "config": {
+    "height": 512,
+    "width": 512,
+    "day_length": 240,
+    "start_hour": 6.0,
+    "water_frac": 0.08,
+    "rock_frac": 0.04,
+    "v_max": 4,
+    "beta": 0.1,
+    "m_night": 0.5,
+    "wet_block": 128,
+    "burn_base": 3,
+    "burn_per_veg": 2,
+    "p_lightning": 1e-06,
+    "p_grow": 0.01,
+    "p_seed": 0.002,
+    "regrow_delay": 120,
+    "dry_rate": 2.0,
+    "tank": 20,
+    "infinite_water": false,
+    "window": 33,
+    "pixels_per_cell": 4,
+    "render_grid": false,
+    "tile": 16,
+    "snapshot_every": 50
+  },
+  "candidates": 48,
+  "rollouts_per_candidate": 4,
+  "best_index": 36,
+  "best_params": {
+    "w_explore": 0.5554267142941851,
+    "w_revisit": 0.33748362572091856,
+    "w_ignite": 0.7362835034869766,
+    "w_fight": 0.81180969081332,
+    "w_idle": 0.11179512292526066,
+    "dwell_mean": 47.41384198141718,
+    "idle_mean": 2.6102822889273507,
+    "revisit_median": 1224.1831926404504,
+    "p_pause": 0.01468082409794723,
+    "turn": 0.05210315922718992
+  },
+  "best_score": 6.773386079883938,
+  "default_score": 10.298231148772835,
+  "per_stat": {
+    "frac_move": {
+      "best": 0.05314199620858795,
+      "default": 0.14906573605810203,
+      "human_split_half": 0.06130942009567671
+    },
+    "frac_idle": {
+      "best": 0.05634048757801591,
+      "default": 0.1446041973740594,
+      "human_split_half": 0.05828087481990687
+    },
+    "frac_ignite": {
+      "best": 0.0032872051393063404,
+      "default": 0.006887901020583925,
+      "human_split_half": 0.007408518560344773
+    },
+    "frac_water": {
+      "best": 0.0035638191369345732,
+      "default": 0.0019756341315715657,
+      "human_split_half": 0.005843386984849012
+    },
+    "move_success": {
+      "best": 0.030997510745054774,
+      "default": 0.030997510745054774,
+      "human_split_half": 0.0030706033667467674
+    },
+    "fire_visible_frac": {
+      "best": 0.044703404066153155,
+      "default": 0.23934626439736578,
+      "human_split_half": 0.1144557963773227
+    },
+    "straight_runs": {
+      "best": 0.7886909073255832,
+      "default": 0.8861551934780938,
+      "human_split_half": 0.014074425502765497
+    },
+    "idle_runs": {
+      "best": 0.10706669137130809,
+      "default": 0.45269343894058933,
+      "human_split_half": 0.032988051034694044
+    },
+    "dist_fire_at_water": {
+      "best": 0.2132811283973003,
+      "default": 0.23729713788164386,
+      "human_split_half": 0.006853916802606164
+    },
+    "revisit_gaps": {
+      "best": 0.4168402634264847,
+      "default": 0.9282864573480918,
+      "human_split_half": 0.04907591114774568
+    },
+    "coverage": {
+      "best": 0.8052692346471245,
+      "default": 0.39454116975991427,
+      "human_split_half": 0.23979860903596617
+    }
+  }
+}
