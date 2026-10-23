@@ -179,6 +179,15 @@ tiles)` (tile statistics of `n` forked futures), `burn_probability` (used by the
 `retention_curve(series, lags, stat)`, `episode_tile_series(ep_dir)`, `energy_distance`
 and `mmd` (unbiased MMD², Gaussian kernel, median-heuristic bandwidth).
 
+One-step oracle: `dynamics.transition_probs(state, action, cfg)` gives the exact distribution
+of every cell's next state. Given the state, cells are independent, and each has 8 outcomes
+(ignition, growth or seeding, the extra unit of stochastic drying), returned as next layers
+and probabilities of shape `(..., H, W, 8)`. `observe.transition_log_prob(tp, next_grid, cfg)`
+is the per-cell log-likelihood of an observed next grid, the lower bound for learned one-step
+models. `step` stays the reference; `test_transition_probs_match_forks` checks the two against
+2000 one-step forks per state (per cell, and pooled by predicted probability). Any change to
+the rules in `step` must be mirrored here.
+
 ```bash
 uv run python scripts/evaluate.py --out docs/evaluation                 # headless runs
 uv run python scripts/evaluate.py --episodes data/test --out /tmp/eval  # recorded episodes
